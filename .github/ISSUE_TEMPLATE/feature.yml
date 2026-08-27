@@ -1,0 +1,33 @@
+name: 功能任务
+description: 创建可追踪的功能开发任务
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: input
+    id: requirement
+    attributes:
+      label: 需求编号
+      description: 例如 FR-AGT-007
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景与目标
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 使用可验证、可判定的条目描述。
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: 接口、数据、权限与风险影响
+  - type: textarea
+    id: verification
+    attributes:
+      label: 计划验证方式

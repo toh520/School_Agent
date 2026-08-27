@@ -1,0 +1,42 @@
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Front-end
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Java
+target/
+*.class
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Runtime data
+logs/
+uploads/
+tmp/
+*.log
+
+# Generated document QA files
+.report_qa/
+.report_work/
