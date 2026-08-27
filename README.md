@@ -5,7 +5,7 @@
 ## 项目状态
 
 - 当前阶段：项目初始化与需求设计
-- 需求基线：V2.0（Markdown）
+- 需求基线：V1.0（Markdown）
 - 基线日期：2026-08-27
 - 团队仓库：<https://github.com/toh520/School_Agent>
 
@@ -16,14 +16,14 @@
 | Web 前端 | Vue 3、TypeScript、Vite、Element Plus、Tailwind CSS、Pinia、ECharts |
 | 核心业务后端 | Java 21、Spring Boot 3.5、Spring Security、MyBatis-Plus |
 | AI 与 Agent | Python 3.11/3.12、FastAPI、LangGraph、RAG |
-| 数据与中间件 | PostgreSQL、pgvector、Redis、RabbitMQ、MinIO |
-| 接入与部署 | Nginx、Docker Compose、Kubernetes |
-| 可观测性 | Prometheus、Grafana、OpenTelemetry |
+| 数据存储 | PostgreSQL、pgvector、本地文件目录 |
+| 本地运行 | Node.js、JDK、Python 虚拟环境，可选 Docker Compose |
+| 可选部署 | Nginx、Docker Compose 或直接运行服务部署到个人云服务器 |
 | 测试 | JUnit、pytest、Playwright |
 
 ## 文档入口
 
-- [智慧校园智能体系统需求分析报告 V2.0](docs/requirements/智慧校园智能体系统需求分析报告.md)
+- [智慧校园智能体系统需求分析报告 V1.0](docs/requirements/智慧校园智能体系统需求分析报告.md)
 - [项目过程日志](docs/process/PROJECT_LOG.md)
 - [需求追踪矩阵](docs/process/TRACEABILITY_MATRIX.md)
 - [测试与验收记录](docs/process/TEST_LOG.md)
@@ -45,7 +45,7 @@
 School_Agent/
 ├─ apps/                 # 前端应用与管理端（开发阶段创建）
 ├─ services/             # Java 业务服务和 Python Agent 服务
-├─ deploy/               # 容器、Kubernetes 与环境配置
+├─ deploy/               # 可选的本地容器和个人云服务器配置
 ├─ docs/                  # 项目、需求、决策与过程证据
 ├─ tests/                 # 端到端、性能和安全测试
 └─ tools/                 # 构建、校验和辅助脚本（开发阶段创建）
