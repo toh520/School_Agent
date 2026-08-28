@@ -1,0 +1,100 @@
+智慧校园智能体系统开发环境审查与安装记录
+
+审查日期：2026-08-28
+审查依据：README.md、智慧校园智能体系统需求分析报告 V1.0、智慧校园智能体系统技术开发报告 V1.0
+操作系统：Windows 64 位（Microsoft Windows NT 10.0.26200.0）
+
+一、环境策略
+
+1. 前端使用系统已安装的 Node.js 与 npm。
+2. Java、Python、Maven、PostgreSQL 和 pgvector 安装到独立 Conda 环境 school-agent，避免影响已有 rgbt 科研环境。
+3. Docker Desktop、WSL、Nginx 和云服务器部署属于当前课设的可选环境，不作为本次必装项。
+4. FastAPI、LangGraph、Spring Boot、Vue、Playwright 等项目依赖应在对应工程创建后通过锁定的项目依赖文件安装，不在全局环境提前散装。
+
+二、审查结果（安装前）
+
+项目                         要求                     审查结果
+---------------------------  -----------------------  -----------------------------------------
+Windows 64 位               必需                     已安装，符合要求
+Visual Studio Code          推荐                     已安装，1.135.0
+Git                         必需                     已安装，2.55.0.windows.3
+Node.js                     必需                     已安装，24.19.0
+npm                         必需                     已安装，11.17.0
+Python                      必需，3.11 或 3.12       缺失兼容版本；Miniconda base 为 3.14.6
+JDK                         必需，Java 21            未安装
+Maven                       Java 构建工具             未安装
+PostgreSQL                  必需                     未安装
+pgvector                    必需                     未安装
+Docker Desktop / Compose    可选                     未安装
+WSL2                        Docker 可选依赖           未启用
+Nginx                       可选部署                 未安装
+
+三、安装决策与变更
+
+1. 创建独立 Conda 环境：C:\Users\31412\miniconda3\envs\school-agent。
+2. 安装来源统一使用 conda-forge，避免修改 Miniconda base 和已有 rgbt 环境。
+3. 初次尝试 PostgreSQL 17 与 pgvector 0.8 时发生 Windows 依赖版本冲突，安装事务在创建环境前终止，没有留下半成品环境。
+4. 最终采用 PostgreSQL 16.14 与 pgvector 0.8.3。该组合满足当前需求报告对 PostgreSQL 和向量检索的要求，并已通过实际数据库运行验证。
+5. 同时安装 pytest 与 Ruff，作为后续 Python 项目的基础测试和静态检查工具。
+
+四、安装结果（最终）
+
+项目                         版本/状态                安装位置或说明
+---------------------------  -----------------------  ----------------------------------------------------
+Windows                     10.0.26200.0             系统已有（Windows 11，64 位）
+Visual Studio Code          1.135.0                  系统已有
+Git                         2.55.0.windows.3          系统已有
+Node.js                     24.19.0                  系统已有
+npm                         11.17.0                  系统已有
+Python                      3.12.13                  Conda 环境 school-agent
+pip                         26.2                     Conda 环境 school-agent
+pytest                      9.1.1                    Conda 环境 school-agent
+Ruff                        0.16.1                   Conda 环境 school-agent
+OpenJDK / javac             21.0.10 LTS              Conda 环境 school-agent
+Apache Maven                3.9.16                   Conda 环境 school-agent
+PostgreSQL / psql           16.14                    Conda 环境 school-agent
+pgvector                    0.8.3                    Conda 环境 school-agent
+VS Code Python              2026.4.0                 已安装扩展 ms-python.python
+VS Code Pylance             2026.3.1                 已安装扩展 ms-python.vscode-pylance
+VS Code Extension Pack Java 0.31.1                   已安装扩展 vscjava.vscode-java-pack
+VS Code Spring Boot Tools   0.2.2                    已安装扩展 vmware.vscode-boot-dev-pack
+VS Code Vue Official        3.3.11                   已安装扩展 Vue.volar
+VS Code YAML                1.24.0                   已安装扩展 redhat.vscode-yaml
+
+五、验证结果
+
+1. 已分别执行 Python、pip、pytest、Ruff、Java、javac、Maven 和 psql 的版本命令，结果与上表一致。
+2. 已建立一次性 PostgreSQL 测试数据目录，在 127.0.0.1:55432 启动数据库并成功执行 CREATE EXTENSION vector。
+3. 数据库返回 pgvector 扩展版本 0.8.3；向量距离测试结果为 2.8284271247461903，证明扩展可以加载并参与计算。
+4. 验证结束后已停止临时数据库并删除一次性测试目录；当前没有额外占用 55432 端口的 PostgreSQL 进程。
+5. 本次只安装数据库程序和扩展，没有提前创建项目正式数据库、固定密码或常驻系统服务。正式数据目录应在 S1 工程基础阶段结合配置文件创建。
+
+六、日常使用方式
+
+1. 关闭并重新打开 PowerShell 或 VS Code 终端，使 Conda 初始化配置生效。
+2. 进入开发环境：conda activate school-agent
+3. 检查环境：python --version、java -version、mvn --version、psql --version
+4. 离开开发环境：conda deactivate
+5. 如果终端仍不能识别 conda，可先使用 Miniconda Prompt，或重新执行：C:\Users\31412\miniconda3\_conda.exe init powershell，然后重开终端。
+
+七、S1 阶段数据库初始化参考
+
+以下操作应在项目根目录和 school-agent 环境中执行；数据库口令、端口和数据目录应同步写入本地环境变量示例，禁止提交真实口令。
+
+initdb -D .\tmp\postgres-data -U postgres -W --encoding=UTF8
+pg_ctl -D .\tmp\postgres-data -l .\tmp\postgres.log start
+createdb -U postgres school_agent
+psql -U postgres -d school_agent -c "CREATE EXTENSION vector;"
+
+停止本地数据库：
+
+pg_ctl -D .\tmp\postgres-data -m fast stop
+
+八、当前未安装但不阻塞开发的项目
+
+1. Docker Desktop、Docker Compose、WSL2：需求和技术报告将容器化列为可选部署方式，当前本地课设开发不强制使用。
+2. Nginx：只在云服务器或统一反向代理部署时需要，当前不安装。
+3. Redis、RabbitMQ、MinIO、Kubernetes：不在 V1.0 技术基线中，不应为追求完整而扩大环境范围。
+4. Spring Boot、JUnit、Vue、Vite、Playwright、FastAPI、LangGraph 等框架依赖：待各自功能模块进入开发阶段后，通过 pom.xml、package.json 和 Python 锁定依赖文件按模块安装，确保版本可复现。
+
+结论：当前 V1.0 本地开发所需的基础工具均已安装并完成版本核验；剩余项目均为可选部署环境或应随具体工程锁定安装的框架依赖。
