@@ -24,12 +24,14 @@
 ## 文档入口
 
 - [智慧校园智能体系统需求分析报告 V1.0](docs/requirements/智慧校园智能体系统需求分析报告.md)
+- [智慧校园智能体系统技术开发报告 V1.0](docs/design/智慧校园智能体系统技术开发报告.md)
 - [项目过程日志](docs/process/PROJECT_LOG.md)
 - [需求追踪矩阵](docs/process/TRACEABILITY_MATRIX.md)
 - [测试与验收记录](docs/process/TEST_LOG.md)
 - [会议纪要](docs/process/MEETING_NOTES.md)
 - [架构决策记录](docs/decisions/ADR-0001-technology-stack.md)
 - [协作规范](CONTRIBUTING.md)
+- [开发代码规范](AGENTS.md)
 
 ## 留痕原则
 
