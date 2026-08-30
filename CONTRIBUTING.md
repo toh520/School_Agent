@@ -19,7 +19,7 @@ feat(agent): add tool confirmation workflow
 
 Requirement: FR-AGT-007
 Issue: #12
-Verification: pytest tests/agent/test_confirmation.py
+Verification: pytest code/tests/agent/test_confirmation.py
 ```
 
 推荐类型：`feat`、`fix`、`docs`、`test`、`refactor`、`perf`、`security`、`build`、`ci`、`chore`。

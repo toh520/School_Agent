@@ -98,3 +98,12 @@ pg_ctl -D .\tmp\postgres-data -m fast stop
 4. Spring Boot、JUnit、Vue、Vite、Playwright、FastAPI、LangGraph 等框架依赖：待各自功能模块进入开发阶段后，通过 pom.xml、package.json 和 Python 锁定依赖文件按模块安装，确保版本可复现。
 
 结论：当前 V1.0 本地开发所需的基础工具均已安装并完成版本核验；剩余项目均为可选部署环境或应随具体工程锁定安装的框架依赖。
+
+九、S1/M01 项目依赖安装结果（2026-08-30）
+
+1. Web 工程已安装 Vue 3.5.22、Vite 7.3.6、Element Plus 2.11.5、Pinia 3.0.3、Playwright 1.55.1 等依赖，完整版本由 code/apps/web/package-lock.json 锁定。
+2. Python 工程已在 code/services/agent-service/.venv 中安装 FastAPI 0.115.12、Uvicorn 0.37.0、psycopg 3.2.10、pytest 8.4.2、Ruff 0.13.2 等依赖，完整版本由 requirements.lock 锁定。
+3. Java 工程使用 Spring Boot 3.5.7、Flyway 11.14.1、PostgreSQL JDBC、JUnit 5 和 Spotless，版本由 pom.xml、Spring Boot BOM 和 Maven Enforcer 固定。
+4. Playwright Chromium 140.0.7339.186 已安装，并完成隔离页面测试和真实全链路页面测试。
+5. npm 安全审计初次发现 axios 与 Vite 的已知问题，已升级至 axios 1.20.0 和 Vite 7.3.6；复查结果为 0 个漏洞。
+6. 本地 PostgreSQL 数据目录使用仓库忽略路径 tmp/postgres-data；真实环境值使用 deploy/.env.local，不进入 Git。
