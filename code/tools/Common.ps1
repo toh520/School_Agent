@@ -7,11 +7,11 @@ function Get-RepositoryRoot {
 
 function Import-SchoolAgentEnvironment {
     param(
-        [string]$EnvironmentFile = (Join-Path (Get-RepositoryRoot) 'deploy\.env.local')
+        [string]$EnvironmentFile = (Join-Path (Get-RepositoryRoot) 'code\deploy\.env.local')
     )
 
     if (-not (Test-Path -LiteralPath $EnvironmentFile -PathType Leaf)) {
-        throw "Missing environment file: $EnvironmentFile. Copy deploy/.env.example to deploy/.env.local first."
+        throw "Missing environment file: $EnvironmentFile. Copy code/deploy/.env.example to code/deploy/.env.local first."
     }
 
     foreach ($line in Get-Content -LiteralPath $EnvironmentFile) {

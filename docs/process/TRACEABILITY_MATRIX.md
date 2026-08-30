@@ -4,7 +4,7 @@
 
 | 需求域 | 需求范围 | 设计/ADR | 代码模块 | 测试/验收 | 状态 |
 |---|---|---|---|---|---|
-| M01 | 工程基础、公共配置与可运行性 | 技术开发报告 M01、ADR-0001、M01 公共工程契约 | `code/apps/web`、`code/services/core-service`、`code/services/agent-service`、`deploy`、`code/tools` | `M01_ACCEPTANCE.md`、三端冒烟与真实链路测试 | 已验收 |
+| M01 | 工程基础、公共配置与可运行性 | 技术开发报告 M01、ADR-0001、M01 公共工程契约 | `code/apps/web`、`code/services/core-service`、`code/services/agent-service`、`code/deploy`、`code/tools` | `M01_ACCEPTANCE.md`、三端冒烟与真实链路测试 | 已验收 |
 | IAM | FR-IAM-001～008 | 技术开发报告 M02、ADR-0001 | 待创建 | AT-01、AT-15 | 待设计 |
 | AGT | FR-AGT-001～010 | 技术开发报告 M04、ADR-0001 | 待创建 | AT-06、AT-14、AT-16 | 待设计 |
 | FOOD | FR-FOOD-001～015 | 技术开发报告 M05 | 待创建 | AT-02～04 | 待设计 |

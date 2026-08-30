@@ -106,4 +106,4 @@ pg_ctl -D .\tmp\postgres-data -m fast stop
 3. Java 工程使用 Spring Boot 3.5.7、Flyway 11.14.1、PostgreSQL JDBC、JUnit 5 和 Spotless，版本由 pom.xml、Spring Boot BOM 和 Maven Enforcer 固定。
 4. Playwright Chromium 140.0.7339.186 已安装，并完成隔离页面测试和真实全链路页面测试。
 5. npm 安全审计初次发现 axios 与 Vite 的已知问题，已升级至 axios 1.20.0 和 Vite 7.3.6；复查结果为 0 个漏洞。
-6. 本地 PostgreSQL 数据目录使用仓库忽略路径 tmp/postgres-data；真实环境值使用 deploy/.env.local，不进入 Git。
+6. 本地 PostgreSQL 数据目录使用仓库忽略路径 tmp/postgres-data；真实环境值使用 code/deploy/.env.local，不进入 Git。

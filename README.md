@@ -41,10 +41,10 @@ conda activate school-agent
 ### 2. 创建本地配置
 
 ```powershell
-Copy-Item deploy/.env.example deploy/.env.local
+Copy-Item code/deploy/.env.example code/deploy/.env.local
 ```
 
-编辑 `deploy/.env.local`，至少替换 `SCHOOL_AGENT_DB_PASSWORD` 的占位值。该文件已被 Git 忽略，禁止提交真实密码、令牌或密钥。
+编辑 `code/deploy/.env.local`，至少替换 `SCHOOL_AGENT_DB_PASSWORD` 的占位值。该文件已被 Git 忽略，禁止提交真实密码、令牌或密钥。
 
 ### 3. 安装项目依赖
 
@@ -102,7 +102,7 @@ Set-Location ../..
 
 ## 公共约定
 
-- 环境模板：`deploy/.env.example`
+- 环境模板：`code/deploy/.env.example`
 - 统一响应、错误码、分页、请求标识、时区和日志脱敏：[M01 公共工程契约](docs/design/M01-公共工程契约.md)
 - 请求标识：`X-Request-ID`，在 Web、Java 和 Python 之间传播
 - 项目时区：`Asia/Shanghai`
@@ -132,8 +132,8 @@ School_Agent/
 │  ├─ services/core-service/         # Spring Boot 公共契约、迁移和聚合健康接口
 │  ├─ services/agent-service/        # FastAPI 配置、日志和数据库健康探针
 │  ├─ tests/                         # 后续跨模块测试目录
-│  └─ tools/                         # 环境、依赖、启动、停止和测试脚本
-├─ deploy/.env.example               # 可提交的无密钥环境模板
+│  ├─ tools/                         # 环境、依赖、启动、停止和测试脚本
+│  └─ deploy/.env.example            # 可提交的无密钥环境模板
 ├─ docs/                             # 需求、设计、决策和过程证据
 ├─ logs/                             # 被忽略的本地运行日志
 └─ tmp/                              # 被忽略的本地运行数据

@@ -80,3 +80,19 @@
 - 结果：JUnit 7/7；pytest 5/5；隔离 Playwright 2/2；真实链路 Playwright 1/1；Flyway 2/2；npm 高危漏洞 0
 - 缺陷：验收发现的启动竞态已修复并回归通过；无遗留 S1/S2 缺陷
 - 结论：通过，S1/M01 标记“已验收”，允许进入 S2/M02
+
+## 2026-08-30｜部署配置目录迁移回归验证
+
+- 版本/提交：`chore/m01-project-foundation` 工作区（提交前）
+- 环境：Windows 11；`school-agent` Conda 环境
+- 执行人：Codex
+- 调整内容：将 `deploy` 从仓库根目录迁移到 `code/deploy`，同步脚本默认配置路径和全部项目文档
+- 安全检查：`code/deploy/.env.local` 继续被 Git 忽略，真实配置未进入版本控制
+- 测试命令：
+  - `./code/tools/check-env.ps1`
+  - `./code/tools/test-all.ps1`
+  - `./code/tools/start-dev.ps1`
+  - `npm run test:e2e:live`
+  - `./code/tools/stop-dev.ps1`
+- 结果：JUnit 7/7；pytest 5/5；隔离 Playwright 2/2；真实链路 Playwright 1/1；前端构建成功
+- 结论：配置迁移后编译、测试、真实启动、配置读取和停止流程全部通过
