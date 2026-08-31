@@ -1,0 +1,2 @@
+code,name,stallCode,price,imageUrl,tastes,ingredientCodes,nutritionKcal,nutritionProtein,allergens,supplyPeriods,availabilityStatus,source
+DISH-DEMO,示例菜品,STALL-DEMO,12.50,,清淡,INGREDIENT-DEMO,480,16,麸质,午餐|晚餐,AVAILABLE,公开菜单资料

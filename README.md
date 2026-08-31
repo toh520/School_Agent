@@ -1,12 +1,12 @@
 # School Agent｜智慧校园智能体系统
 
-本仓库是“2026 软件工程专业实习计划 v2”的团队项目仓库，用于建设面向学生的智慧校园 AI 助手。项目按 M01～M10 单模块串行开发，S1/M01 与 S2/M02 均已验收，下一阶段为 S3/M03。
+本仓库是“2026 软件工程专业实习计划 v2”的团队项目仓库，用于建设面向学生的智慧校园 AI 助手。项目按 M01～M10 单模块串行开发，S1/M01、S2/M02 与 S3/M03 均已验收。
 
 ## 当前阶段
 
-- 当前状态：S2/M02 身份、用户与授权已验收，允许进入 S3/M03；S3 尚未开始
-- 已完成：学生注册、账号登录、令牌刷新与退出、资料和偏好、四类独立授权、撤回清理、角色/所有权校验与审计检索
-- 明确未开展：资料管理、Agent 对话、食堂、考试规划、图书推荐和校园问答
+- 当前状态：S3/M03 统一信息资料管理已完成并通过非作者验收，允许进入 S4/M04
+- 已完成：M02 身份与授权；M03 八类资料 CRUD、搜索、停用、完整度、CSV 预校验/导入、账号状态和管理操作记录
+- 明确未开展：Agent 对话、食堂推荐、考试规划、图书推荐、文档解析检索和校园问答
 - 需求基线：V1.0（2026-08-27）
 - 团队仓库：<https://github.com/toh520/School_Agent>
 
@@ -78,6 +78,8 @@ Copy-Item code/deploy/.env.example code/deploy/.env.local
 - `V2__identity_access.sql`：创建用户、会话、偏好、授权、清理和审计表，并写入本地测试账号；
 - `V3__neutralize_local_account_names.sql`：统一本地测试账号的中性显示名称；
 - `V4__student_registration.sql`：增加学号、姓名、手机号、唯一约束及注册查询索引；
+- `V5__information_management.sql`：创建八类统一资料、管理操作日志、索引、引用约束及脱敏初始化数据；
+- `V6__simplify_knowledge_documents.sql`：将校园资料收敛为标题、类别、关键词、正文和来源的公告文本结构；
 - `R__sanitized_foundation_seed.sql`：写入不含账号和个人数据的基础种子标识。
 
 启动成功后访问：
@@ -88,6 +90,8 @@ Copy-Item code/deploy/.env.example code/deploy/.env.local
 - Python 健康接口：<http://127.0.0.1:8000/health>
 
 M02 本地测试账号：学生 `student1` / `Student@123`，管理员 `admin1` / `Admin@123`。这些账号只用于本机功能测试，不得用于共享或正式环境。
+
+管理员登录后进入“校园资料管理台”。M03 的八类可重复 CSV 模板位于 `docs/templates/m03/`，详细设计和人工验收步骤见 `docs/design/M03-统一信息资料管理设计.md` 与 `docs/process/M03_ACCEPTANCE.md`。
 
 学生也可以在登录页切换到“注册”，使用学号、姓名、手机号、登录账号和密码创建账号。公开注册只会创建学生角色。
 

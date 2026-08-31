@@ -6,5 +6,6 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import './styles.css'
 import './responsive.css'
+import './admin.css'
 
 createApp(App).use(createPinia()).use(ElementPlus).mount('#app')

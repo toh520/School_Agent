@@ -11,7 +11,7 @@
 | EXAM | FR-EXAM-001～013 | 技术开发报告 M06 | 待创建 | AT-05～09 | 待设计 |
 | BOOK | FR-BOOK-001～012 | 技术开发报告 M07 | 待创建 | AT-10～12 | 待设计 |
 | QA | FR-QA-001～010 | 技术开发报告 M08、ADR-0001 | 待创建 | AT-13、AT-14 | 待设计 |
-| ADM | FR-ADM-001～008 | 技术开发报告 M03 | 待创建 | AT-16、AT-18 | 待设计 |
+| ADM | FR-ADM-001～008 | 技术开发报告 M03、M03 统一信息资料管理设计 | `core/management`、Web 管理台、Flyway V5/V6、M03 CSV 模板 | AT-16、AT-18、`M03_ACCEPTANCE.md` | 已验收 |
 | NFR-M01 | M01 范围内的可用性、安全与可维护性基础 | 技术开发报告 M01、ADR-0001、M01 公共工程契约 | 三端工程、配置预检、日志脱敏、测试与启停脚本 | `M01_ACCEPTANCE.md`、M01 基础证据 | 已验收 |
 | NFR | 后续性能、安全、AI 质量与全局验收 | 技术开发报告 M09/M10、ADR-0001 | 待后续阶段实现 | AT-15～18 | 待设计 |
 
@@ -27,6 +27,19 @@
 | FR-IAM-006 | M02 设计 4.2 | 四类 `data_authorization`、默认拒绝授权页 | `UserServiceTest`、隔离 E2E、AT-15 | 同上 | 已验收 |
 | FR-IAM-007 | M02 设计 4.3 | 撤回授权、长期记忆删除、清理记录 | `UserServiceTest`、AT-15 | 同上 | 已验收 |
 | FR-IAM-008 | M02 设计 4.4 | 独立事务审计、本人/管理员检索接口 | AT-15 审计检索与管理员边界 | 同上 | 已验收 |
+
+## M03 单项追踪
+
+| 需求编号 | 设计 | 实现位置 | 自动化测试 | 人工验收 | 状态 |
+|---|---|---|---|---|---|
+| FR-ADM-001 | M03 设计 1、3、6 | `AdminWorkspace.vue`、`ManagementController` | `management.spec.ts`、AT-16 live | `M03_ACCEPTANCE.md`，夫验收通过 | 已验收 |
+| FR-ADM-002 | M03 设计 1、3、5 | `@PreAuthorize`、账号安全摘要接口 | AT-16 学生 403、既有权限回归 | 同上 | 已验收 |
+| FR-ADM-003 | M03 设计 2、4 | `ResourceSchema`、`ResourceValidator`、完整度刻度 | `ResourceValidatorTest`、管理台 E2E | 同上 | 已验收 |
+| FR-ADM-004 | M03 设计 2 | 食堂/窗口/食材/菜品表与动态表单 | Java 校验、隔离 E2E、真实 CRUD | 同上 | 已验收 |
+| FR-ADM-005 | M03 设计 2 | 书目/馆藏表与动态表单 | Java 校验、模板及真实迁移 | 同上 | 已验收 |
+| FR-ADM-006 | M03 设计 2、4 | 校园公告标题、类别、关键词、正文、来源及 V6 数据转换 | `ResourceValidatorTest`、CSV 模板及真实迁移 | 同上 | 已验收 |
+| FR-ADM-007 | M03 设计 3、4 | 通用 CRUD、搜索、每页 20 条分页、有效/停用筛选、CSV 两阶段导入 | `management.spec.ts` 分页/筛选、`CsvTableParserTest`、AT-16、AT-18 | 同上 | 已验收 |
+| FR-ADM-008 | M03 设计 2、5 | 统一审计字段与 `admin_operation_log`，展示操作者账号、作用对象和请求编号 | `ManagementServiceTest`、`management.spec.ts` 日志字段/分页、AT-16 操作记录 | 同上 | 已验收 |
 
 ## 单项追踪模板
 

@@ -1,0 +1,2 @@
+code,name,bookCode,callNumber,location,totalCount,availableCount,availabilityStatus,source
+HOLDING-DEMO,示例馆藏,BOOK-DEMO,TP000-DEMO,图书馆示例区域,5,3,AVAILABLE,公开馆藏资料

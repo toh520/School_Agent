@@ -22,6 +22,53 @@
 - S1、S2 缺陷必须为 0；S3 必须有确认后的修复计划；S4 不得影响验收。
 - 课设阶段重点验证本地启动、核心流程、数据保存、错误处理和课堂演示稳定性。
 
+## 2026-08-31｜S3/M03 非作者验收
+
+- 验收人：夫
+- 关联范围：FR-ADM-001～008、AT-16、AT-18、M03 完整功能与数据边界
+- 复核依据：`docs/process/M03_ACCEPTANCE.md`、完整自动化测试结果和实际页面/数据库检查
+- 验证结果：Java 26/26；pytest 5/5；隔离 Playwright 9/9；真实 Playwright 7/7；数据库当前版本 V6
+- 缺陷：无遗留 S1/S2 缺陷；Element Plus 单包体积警告为已记录的非阻断性能事项
+- 结论：通过，S3/M03 标记为“已验收”，允许进入 S4/M04
+
+## 2026-08-31｜M03 分页、停用筛选与操作日志回归
+
+- 版本/提交：`feature/m03-information-management` 工作区（提交前）
+- 环境：Windows 11；`school-agent` Conda；OpenJDK 21；PostgreSQL 16；Node.js 24
+- 关联需求：FR-ADM-007、FR-ADM-008、AT-16
+- 测试命令：`./code/tools/test-all.ps1`、`npm run test:e2e:live`、真实页面 DOM 与截图检查
+- 结果：JUnit 26/26；pytest 5/5；隔离 Playwright 9/9；真实 Playwright 7/7；类型、格式、生产构建和 JAR 打包通过
+- 新增覆盖：资料分页与总数、有效/已停用筛选、操作日志字段与分页、重复编码 HTTP 409、真实日志操作者账号和请求编号
+- 页面验证：真实停用资料共 5 条可见；操作记录共 34 条并出现分页；管理员账号、作用对象和请求编号均正确显示
+- 已知问题：仅保留既有 Element Plus 单包大于 500KB 的非阻断构建警告
+- 结论：本次 M03 完善项通过开发者验证，等待非作者按更新后的验收步骤复核
+
+## 2026-08-31｜校园公告简化与 RAG 数据契约回归
+
+- 版本/提交：`feature/m03-information-management` 工作区（提交前）
+- 关联需求：FR-ADM-006、FR-QA-001～010 的数据契约
+- 测试命令：`./code/tools/test-all.ps1`、`npm run test:e2e:live`、Flyway 启动迁移、真实页面 DOM 检查
+- 结果：JUnit 25/25；pytest 5/5；隔离 Playwright 7/7；真实 Playwright 7/7；构建与格式检查通过
+- 数据验证：Flyway 从 V5 升级至 V6；校园公告 Schema 仅包含编码、标题、类别、关键词、正文和来源；关键词按列表持久化并可通过管理搜索命中
+- 页面验证：导航显示“校园公告”，新增表单只显示六项字段，未残留版本、权限、有效期或附件字段
+- 范围验证：未实现向量索引、检索器、RAG 或大模型回答
+- 结论：校园公告简化满足变更后的 M03 数据契约
+
+## 2026-08-31｜S3/M03 统一信息资料管理开发者验证
+
+- 版本/提交：`feature/m03-information-management` 工作区（提交前）
+- 环境：Windows 11；`school-agent` Conda；OpenJDK 21；PostgreSQL 16；Node.js 24
+- 执行人：Codex（实现与自测）；非作者复现待完成
+- 关联需求：FR-ADM-001～008、AT-16、AT-18
+- 测试命令：`./code/tools/test-all.ps1`、`npm run test:e2e:live`、`./code/tools/start-dev.ps1`、浏览器桌面/390px 检查
+- 结果：JUnit 25/25；pytest 5/5；隔离 Playwright 7/7；真实 Playwright 7/7；类型、格式、生产构建和 JAR 打包通过
+- 真实场景：学生访问管理接口 403；管理员新增、搜索、更新、停用和停用状态核查；操作日志动作完整；CSV 负数错误定位至第 2 行具体字段；修正后预校验和确认入库成功
+- 数据迁移：Flyway V5 在既有 V4 数据库成功应用，V6 完成校园公告字段收敛；八类资料和操作日志表可用
+- 页面检查：桌面和 390px 无横向溢出；控制台无 warning/error；页面不含开发状态、基础服务状态或 Demo 字样
+- 缺陷处理：首次真实测试发现 `INACTIVE` 检索受逻辑删除条件遮蔽，修复后完整复测通过；无遗留 S1/S2 缺陷
+- 已知问题：Element Plus 单包大于 500KB 的构建警告不影响功能，留待性能阶段处理
+- 结论：S3/M03 满足开发者退出条件，状态为“待验收”
+
 ## 2026-08-31｜S2/M02 非作者验收
 
 - 验收人：夫

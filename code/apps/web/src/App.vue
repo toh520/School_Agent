@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { logout, restoreSession } from './api/auth'
+import AdminWorkspace from './components/AdminWorkspace.vue'
 import AuthGateway from './components/AuthGateway.vue'
 import {
   cleanupData,
@@ -129,6 +130,8 @@ onMounted(async () => {
 
 <template>
   <AuthGateway v-if="!currentUser" @authenticated="handleAuthenticated" />
+
+  <AdminWorkspace v-else-if="!isStudent" :user="currentUser" @logout="submitLogout" />
 
   <main v-else class="app-shell">
     <header class="topbar">
