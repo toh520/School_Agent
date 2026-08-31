@@ -23,7 +23,8 @@ class RequiredEnvironmentTest {
             "SCHOOL_AGENT_DB_USERNAME", "school_agent",
             "SCHOOL_AGENT_DB_PASSWORD", "replace_with_local_password",
             "SCHOOL_AGENT_AGENT_URL", "http://127.0.0.1:8000",
-            "SCHOOL_AGENT_WEB_ORIGIN", "http://127.0.0.1:5173");
+            "SCHOOL_AGENT_WEB_ORIGIN", "http://127.0.0.1:5173",
+            "SCHOOL_AGENT_AUTH_JWT_SECRET", "replace_with_32_character_minimum_secret");
 
     assertThatThrownBy(() -> RequiredEnvironment.validate(environment))
         .hasMessageContaining("SCHOOL_AGENT_DB_PASSWORD");

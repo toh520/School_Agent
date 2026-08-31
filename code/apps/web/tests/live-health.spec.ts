@@ -1,13 +1,18 @@
 import { expect, test } from '@playwright/test'
 
-test('browser reaches Java, Python and PostgreSQL through the live health page', async ({
+test('Java reports the complete live service chain while login stays business-focused', async ({
   page,
+  request,
 }) => {
-  await page.goto('/')
+  const response = await request.get('http://127.0.0.1:8080/api/v1/health/system')
+  expect(response.status()).toBe(200)
+  const body = await response.json()
+  expect(body.data.status).toBe('UP')
+  expect(body.data.coreService.status).toBe('UP')
+  expect(body.data.agentService.status).toBe('UP')
+  expect(body.data.database.status).toBe('UP')
 
-  const summary = page.getByTestId('health-summary')
-  await expect(summary).toContainText('基础链路正常')
-  await expect(summary).toContainText('Java 核心服务')
-  await expect(summary).toContainText('Python Agent 服务')
-  await expect(summary).toContainText('PostgreSQL / pgvector')
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: /智慧校园.*伴你学习与生活/ })).toBeVisible()
+  await expect(page.getByText('基础服务运行正常')).toHaveCount(0)
 })

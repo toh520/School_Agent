@@ -1,0 +1,70 @@
+@media (max-width: 900px) {
+  .identity-gateway {
+    grid-template-columns: 1fr;
+  }
+
+  .identity-story {
+    min-height: auto;
+    padding: 52px 28px;
+  }
+
+  .school-mark {
+    font-size: 150px;
+  }
+
+  .identity-story h1 {
+    font-size: clamp(40px, 11vw, 64px);
+  }
+
+  .auth-workbench {
+    min-height: auto;
+    padding: 42px 24px 64px;
+  }
+
+  .mode-switch {
+    margin-bottom: 34px;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .sidebar button {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .registration-grid,
+  .identity-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .content-card {
+    padding: 26px 20px;
+  }
+
+  .service-map ul {
+    grid-template-columns: 1fr;
+  }
+
+  .service-map li {
+    min-height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

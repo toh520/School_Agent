@@ -17,6 +17,10 @@ spring:
 school-agent:
   agent-base-url: ${SCHOOL_AGENT_AGENT_URL}
   web-origin: ${SCHOOL_AGENT_WEB_ORIGIN}
+  auth:
+    jwt-secret: ${SCHOOL_AGENT_AUTH_JWT_SECRET}
+    access-token-minutes: ${SCHOOL_AGENT_AUTH_ACCESS_MINUTES:15}
+    refresh-token-days: ${SCHOOL_AGENT_AUTH_REFRESH_DAYS:7}
 
 server:
   address: 127.0.0.1

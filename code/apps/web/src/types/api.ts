@@ -10,15 +10,3 @@ export interface ApiResponse<T> {
   requestId: string
   timestamp: string
 }
-
-export interface DependencyHealth {
-  status: string
-  version?: string
-}
-
-export interface SystemHealth {
-  status: string
-  coreService: DependencyHealth
-  agentService: DependencyHealth
-  database: DependencyHealth
-}

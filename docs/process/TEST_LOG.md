@@ -22,6 +22,52 @@
 - S1、S2 缺陷必须为 0；S3 必须有确认后的修复计划；S4 不得影响验收。
 - 课设阶段重点验证本地启动、核心流程、数据保存、错误处理和课堂演示稳定性。
 
+## 2026-08-31｜S2/M02 非作者验收
+
+- 验收人：夫
+- 关联范围：FR-IAM-001～008、AT-01、AT-15、M02 数据库与前端页面
+- 复核依据：`docs/process/M02_ACCEPTANCE.md`、本文件中的开发者测试批次和实际页面/数据库检查
+- 验证结果：Java 15/15；pytest 5/5；隔离 Playwright 5/5；真实 Playwright 4/4；数据库当前版本 V4
+- 缺陷：无遗留 S1/S2 缺陷
+- 结论：通过，S2/M02 标记为“已验收”，允许进入 S3/M03
+
+## 2026-08-31｜M02 学生注册与前端优化回归验证
+
+- 版本/提交：`feature/m02-identity-access` 工作区（提交前）
+- 环境：Windows 11；`school-agent` Conda；OpenJDK 21；PostgreSQL 16；Node.js 24
+- 关联需求：FR-IAM-001～008、AT-01、AT-15
+- 测试命令：`./code/tools/test-all.ps1`、`npm run test:e2e:live`、`./code/tools/start-dev.ps1`、`./code/tools/stop-dev.ps1`
+- 结果：JUnit 15/15；pytest 5/5；隔离 Playwright 5/5；真实 Playwright 4/4；类型、格式和生产构建通过
+- 注册场景：身份字段校验、密码确认、用户/偏好/四项授权原子创建、自动登录、身份资料回显、默认拒绝和注册审计均通过
+- 数据迁移：Flyway V4 成功应用，学号/手机号/账号唯一性及学生字段约束由 PostgreSQL 兜底
+- 页面检查：注册字段完整；新版标题与身份凭证布局生效；未显示开发阶段、基础服务状态及测试性页面字样
+- 工程回归：样式文件均小于 500 行；停止脚本在启动器进程提前退出时可继续完成清理
+- 已知问题：Element Plus 仍产生单包体积警告，不影响当前 M02 功能；留待性能阶段按路由拆包
+- 结论：M02 学生注册、数据设计和前端优化通过开发者自测，状态保持“待验收”
+
+## 2026-08-30｜S2/M02 身份、用户与授权验证
+
+- 版本/提交：`feature/m02-identity-access` 工作区（提交前）
+- 环境：Windows 11；`school-agent` Conda；OpenJDK 21；PostgreSQL 16；Node.js 24
+- 执行人：Codex（实现与自测）；非作者复现待完成
+- 关联需求：FR-IAM-001～008、AT-01、AT-15
+- 测试命令：`mvn --batch-mode spotless:check test package`、`npm run check`、`npm run build`、`npm run test:e2e`、`npm run test:e2e:live`
+- 结果：JUnit 12/12；隔离 Playwright 4/4；真实 Playwright 3/3；构建与格式检查通过
+- 真实场景：登录、默认拒绝、刷新令牌旋转、退出立即失效、双用户越权 403、撤回授权与清理、学生/管理员审计边界、基础健康链路
+- 数据迁移：Flyway 成功从 V1 升至 V3，身份与授权表、本地测试账号及中性显示名称创建成功
+- 回归修复：方法级权限拒绝由 500 修正为稳定 403；停止脚本 PowerShell 字符串匹配兼容问题修复并验证
+- 已知问题：无已知 S1/S2 缺陷；前端 Element Plus 单包体积有构建警告，不影响功能，后续可在性能阶段按路由拆包
+- 结论：M02 实现满足退出条件的开发者自测部分，状态为“待验收”
+
+## 2026-08-31｜M02 页面正式化回归验证
+
+- 关联范围：M02 登录页、本地测试账号名称和健康链路展示边界
+- 测试命令：`./code/tools/test-all.ps1`、`npm run test:e2e:live`、Flyway 启动校验、浏览器 DOM 检查
+- 结果：JUnit 12/12；pytest 5/5；隔离 Playwright 4/4；真实 Playwright 3/3；前端构建通过
+- 页面检查：不显示“演示/Demo”、开发阶段编号或基础服务运行状态；账号和密码没有预填
+- 数据检查：Flyway 成功校验 4 条迁移，当前版本 V3；学生显示名称更新为中性名称
+- 结论：正式化调整完成，无新增 S1/S2 缺陷
+
 ## 2026-08-30｜S1/M01 工程基础验证
 
 - 版本/提交：`chore/m01-project-foundation` 工作区（提交前）

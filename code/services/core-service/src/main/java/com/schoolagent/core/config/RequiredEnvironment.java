@@ -12,7 +12,8 @@ public final class RequiredEnvironment {
           "SCHOOL_AGENT_DB_USERNAME",
           "SCHOOL_AGENT_DB_PASSWORD",
           "SCHOOL_AGENT_AGENT_URL",
-          "SCHOOL_AGENT_WEB_ORIGIN");
+          "SCHOOL_AGENT_WEB_ORIGIN",
+          "SCHOOL_AGENT_AUTH_JWT_SECRET");
 
   private RequiredEnvironment() {}
 

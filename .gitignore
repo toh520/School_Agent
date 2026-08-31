@@ -1,6 +1,7 @@
 # IDE and operating-system files
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 *.iml
 .DS_Store
 Thumbs.db

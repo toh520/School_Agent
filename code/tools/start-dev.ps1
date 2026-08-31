@@ -79,4 +79,4 @@ for ($attempt = 1; $attempt -le 30; $attempt++) {
 
 Write-Warning "Services did not become healthy. Inspect logs under $logDirectory."
 & (Join-Path $PSScriptRoot 'stop-dev.ps1')
-throw 'M01 services failed their startup health check.'
+throw 'School Agent services failed their startup health check.'

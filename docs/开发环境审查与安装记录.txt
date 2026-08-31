@@ -60,12 +60,14 @@ VS Code Extension Pack Java 0.31.1                   已安装扩展 vscjava.vsc
 VS Code Spring Boot Tools   0.2.2                    已安装扩展 vmware.vscode-boot-dev-pack
 VS Code Vue Official        3.3.11                   已安装扩展 Vue.volar
 VS Code YAML                1.24.0                   已安装扩展 redhat.vscode-yaml
+VS Code Database Client     9.0.2                    已安装扩展 cweijan.vscode-database-client2
 
 五、验证结果
 
 1. 已分别执行 Python、pip、pytest、Ruff、Java、javac、Maven 和 psql 的版本命令，结果与上表一致。
 2. 已建立一次性 PostgreSQL 测试数据目录，在 127.0.0.1:55432 启动数据库并成功执行 CREATE EXTENSION vector。
 3. 数据库返回 pgvector 扩展版本 0.8.3；向量距离测试结果为 2.8284271247461903，证明扩展可以加载并参与计算。
+4. 已安装并核验 VS Code Database Client 9.0.2，可通过 PostgreSQL 数据网格查看、筛选和编辑本机开发数据；连接及安全边界见 `docs/design/M02-PostgreSQL表格操作指南.md`。
 4. 验证结束后已停止临时数据库并删除一次性测试目录；当前没有额外占用 55432 端口的 PostgreSQL 进程。
 5. 本次只安装数据库程序和扩展，没有提前创建项目正式数据库、固定密码或常驻系统服务。正式数据目录应在 S1 工程基础阶段结合配置文件创建。
 

@@ -38,4 +38,4 @@ try {
     Pop-Location
 }
 
-Write-Host '[OK] Java, Python and Web M01 tests passed.'
+Write-Host '[OK] Java, Python and Web tests passed.'
