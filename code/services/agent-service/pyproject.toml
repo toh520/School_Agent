@@ -9,8 +9,10 @@ description = "FastAPI foundation for the School Agent orchestration service"
 requires-python = "==3.12.*"
 dependencies = [
   "fastapi==0.115.12",
+  "langgraph==1.2.11",
   "psycopg[binary]==3.2.10",
   "pydantic-settings==2.10.1",
+  "sentence-transformers==5.1.2",
   "uvicorn[standard]==0.37.0",
 ]
 

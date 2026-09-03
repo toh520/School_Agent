@@ -12,6 +12,10 @@ export default defineConfig({
         target: process.env.SCHOOL_AGENT_CORE_URL ?? 'http://127.0.0.1:8080',
         changeOrigin: true,
       },
+      '/agent-api': {
+        target: process.env.SCHOOL_AGENT_AGENT_URL ?? 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     },
   },
 })

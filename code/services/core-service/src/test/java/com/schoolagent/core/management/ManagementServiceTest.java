@@ -3,6 +3,7 @@ package com.schoolagent.core.management;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -93,6 +94,38 @@ class ManagementServiceTest {
               assertThat(exception.getStatus()).isEqualTo(HttpStatus.CONFLICT);
             });
     verify(repository, never()).create(any(), any(), any());
+  }
+
+  @Test
+  void preservesGeneratedKnowledgeCodeWhenEditingOnlyVisibleFields() {
+    Map<String, Object> stored =
+        Map.of(
+            "code", "KNOW-ABC12345",
+            "name", "旧标题",
+            "source", "校园知识库管理");
+    ManagedResource existing = resource(ResourceType.KNOWLEDGE, stored);
+    Map<String, Object> visibleValues =
+        Map.of("name", "新标题", "category", "办事指南", "body", "新的知识正文内容。");
+    when(repository.findById(ResourceType.KNOWLEDGE, existing.id()))
+        .thenReturn(Optional.of(existing));
+    when(validator.validate(eq(ResourceType.KNOWLEDGE), any(), eq(existing.id()), eq(0)))
+        .thenAnswer(invocation -> new ValidationResult(invocation.getArgument(1), List.of(), 100));
+    when(repository.update(
+            eq(ResourceType.KNOWLEDGE), eq(existing.id()), any(), eq(admin.userId())))
+        .thenReturn(existing);
+
+    service.update(
+        admin, ResourceType.KNOWLEDGE, existing.id(), visibleValues, "request-knowledge");
+
+    verify(repository)
+        .update(
+            eq(ResourceType.KNOWLEDGE),
+            eq(existing.id()),
+            argThat(
+                values ->
+                    "KNOW-ABC12345".equals(values.get("code"))
+                        && "校园知识库管理".equals(values.get("source"))),
+            eq(admin.userId()));
   }
 
   @Test

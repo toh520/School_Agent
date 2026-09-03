@@ -22,6 +22,20 @@
 - S1、S2 缺陷必须为 0；S3 必须有确认后的修复计划；S4 不得影响验收。
 - 课设阶段重点验证本地启动、核心流程、数据保存、错误处理和课堂演示稳定性。
 
+## 2026-09-01｜S4/M04 通用 Agent 平台开发者验证
+
+- 版本/提交：`feature/m04-agent-platform` 工作区（提交前）
+- 环境：Windows 11；`school-agent` Conda；OpenJDK 21；PostgreSQL 16；Node.js 24；Qwen/Qwen3-8B
+- 执行人：Codex（实现与自测）；非作者复现待完成
+- 关联需求：FR-AGT-001～010、AT-06/14/16 的公共部分
+- 测试命令：Python Ruff/pytest、`npm run check`、`npm run build`、Agent 隔离 Playwright、`live-agent.spec.ts`、真实模型安全边界请求
+- 结果：JUnit 26/26；pytest 54/54；隔离 Playwright 11/11；真实完整链路 Playwright 8/8；类型、格式、Java 打包和生产构建通过
+- 质量集：四类意图 20/20（100%）；测试桩工具 20/20（100%）；非法参数和错误角色均拒绝
+- 真实链路：多轮必要追问、SSE、所有权 404、反馈、未确认记忆拒绝、授权后记忆 CRUD、工具契约和会话删除通过
+- 模型验证：SiliconFlow Qwen/Qwen3-8B 返回 `COMPLETED`、`fallbackUsed=false`；输出边界检查通过，未生成无依据校园材料
+- 已知问题：Element Plus 单包大于 500KB 的既有非阻断构建警告；领域结果必须等待 M05～M08 工具接入
+- 结论：S4/M04 满足开发者退出条件，状态为“待验收”
+
 ## 2026-08-31｜S3/M03 非作者验收
 
 - 验收人：夫

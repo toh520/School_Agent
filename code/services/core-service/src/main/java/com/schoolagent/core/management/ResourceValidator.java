@@ -62,6 +62,7 @@ class ResourceValidator {
       case INTEGER -> integer(raw, field.label());
       case DECIMAL -> decimal(raw, field.label());
       case URL -> url(raw, field.label());
+      case IMAGE -> image(raw, field.label());
       case LIST -> list(raw);
       case SELECT -> selection(field, raw);
       case TEXT, LONG_TEXT -> text(raw, field.kind() == FieldKind.LONG_TEXT ? 20_000 : 1_000);
@@ -112,16 +113,7 @@ class ResourceValidator {
   }
 
   private void validateDish(Map<String, Object> values, int row, List<FieldError> errors) {
-    nonNegative(values, row, errors, "price", "nutritionKcal", "nutritionProtein");
-    Object codes = values.get("ingredientCodes");
-    if (codes instanceof List<?> ingredients) {
-      for (Object ingredient : ingredients) {
-        String code = String.valueOf(ingredient).toUpperCase(Locale.ROOT);
-        if (!repository.existsCode(ResourceType.INGREDIENT, code, null)) {
-          errors.add(error(row, "ingredientCodes", "食材编码不存在：" + code));
-        }
-      }
-    }
+    nonNegative(values, row, errors, "price");
   }
 
   private void validateBook(Map<String, Object> values, int row, List<FieldError> errors) {
@@ -213,6 +205,14 @@ class ResourceValidator {
       throw new IllegalArgumentException(label + "仅允许 HTTP/HTTPS 地址");
     }
     return value;
+  }
+
+  private String image(Object raw, String label) {
+    String value = text(raw, 1_500_000);
+    if (value.startsWith("/foods/") || value.startsWith("data:image/")) {
+      return value;
+    }
+    return url(value, label);
   }
 
   private int integer(Object raw, String label) {

@@ -8,7 +8,15 @@ export type ResourceType =
   | 'KNOWLEDGE'
   | 'SYSTEM_CONFIG'
 
-export type FieldKind = 'TEXT' | 'LONG_TEXT' | 'INTEGER' | 'DECIMAL' | 'URL' | 'LIST' | 'SELECT'
+export type FieldKind =
+  | 'TEXT'
+  | 'LONG_TEXT'
+  | 'IMAGE'
+  | 'INTEGER'
+  | 'DECIMAL'
+  | 'URL'
+  | 'LIST'
+  | 'SELECT'
 
 export interface FieldDefinition {
   key: string

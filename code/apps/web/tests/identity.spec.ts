@@ -83,10 +83,15 @@ test('student logs in and sees default-deny authorization controls', async ({ pa
   await page.getByLabel('密码').fill('Student@123')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page.getByText('学生用户一').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: '智能食堂', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '校园助手', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '考试助手', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '智能图书馆', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: /管理个人档案/ }).click()
   await page.getByRole('button', { name: '数据授权' }).click()
   await expect(page.getByText('四类数据默认不授权')).toBeVisible()
   await expect(page.getByRole('switch', { name: '考试数据' })).not.toBeChecked()
-  await expect(page.getByRole('switch', { name: '饮食与过敏信息' })).not.toBeChecked()
+  await expect(page.getByRole('switch', { name: '饮食安全档案' })).not.toBeChecked()
 })
 
 test('invalid credentials show a clear error without leaving login page', async ({ page }) => {
@@ -164,5 +169,42 @@ test('student registers with verified identity fields and enters personal center
   await page.getByRole('button', { name: '创建账号' }).click()
 
   await expect(page.getByText('学生用户一').first()).toBeVisible()
-  await expect(page.getByText('2026000001')).toBeVisible()
+  await expect(page.getByLabel('学生校园卡').getByText('2026000001')).toBeVisible()
+})
+
+test('personal center keeps only long-term dining safety fields visible', async ({ page }) => {
+  await page.route('**/api/v1/auth/login', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          accessToken: 'access',
+          refreshToken: 'refresh',
+          tokenType: 'Bearer',
+          expiresIn: 900,
+          user: {
+            id: meData.profile.id,
+            username: 'student1',
+            role: 'STUDENT',
+            nickname: '学生用户一',
+          },
+        },
+      },
+    }),
+  )
+  await page.route('**/api/v1/users/me', (route) =>
+    route.fulfill({ json: { success: true, data: meData } }),
+  )
+
+  await page.goto('/')
+  await page.getByLabel('账号').fill('student1')
+  await page.getByLabel('密码').fill('Student@123')
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await page.getByRole('link', { name: /管理个人档案/ }).click()
+  await page.getByRole('button', { name: '安全档案' }).click()
+
+  await expect(page.getByText('长期饮食安全档案')).toBeVisible()
+  await expect(page.getByText('口味', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('单餐预算', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('饮食目标', { exact: true })).toHaveCount(0)
 })

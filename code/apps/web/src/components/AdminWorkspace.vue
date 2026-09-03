@@ -21,47 +21,42 @@ import type {
   ResourceType,
 } from '../types/management'
 import CsvImportPanel from './CsvImportPanel.vue'
+import LlmConfigPanel from './LlmConfigPanel.vue'
+import LibraryAdminPanel from './LibraryAdminPanel.vue'
 import ResourceEditor from './ResourceEditor.vue'
 
 const props = defineProps<{ user: UserSummary }>()
 const emit = defineEmits<{ logout: [] }>()
 
-type AdminView = ResourceType | 'ACCOUNTS' | 'OPERATIONS'
+type AdminView = ResourceType | 'LIBRARY_BOOKS' | 'ACCOUNTS' | 'OPERATIONS' | 'LLM_CONFIG'
 
 const navigation: Array<{ title: string; items: Array<{ key: AdminView; label: string }> }> = [
   {
-    title: '餐饮资料',
-    items: [
-      { key: 'CANTEEN', label: '食堂' },
-      { key: 'STALL', label: '窗口' },
-      { key: 'INGREDIENT', label: '食材' },
-      { key: 'DISH', label: '菜品' },
-    ],
+    title: '智能食堂',
+    items: [{ key: 'DISH', label: '餐品管理' }],
   },
   {
     title: '图书资料',
-    items: [
-      { key: 'BOOK', label: '书目' },
-      { key: 'HOLDING', label: '馆藏' },
-    ],
+    items: [{ key: 'LIBRARY_BOOKS', label: '图书管理' }],
   },
   {
     title: '校园资料',
     items: [
-      { key: 'KNOWLEDGE', label: '校园公告' },
+      { key: 'KNOWLEDGE', label: '校园知识库' },
       { key: 'SYSTEM_CONFIG', label: '公共配置' },
     ],
   },
   {
     title: '系统管理',
     items: [
+      { key: 'LLM_CONFIG', label: '大模型配置' },
       { key: 'ACCOUNTS', label: '账号状态' },
       { key: 'OPERATIONS', label: '操作记录' },
     ],
   },
 ]
 
-const activeView = ref<AdminView>('CANTEEN')
+const activeView = ref<AdminView>('DISH')
 const schemas = ref<ResourceSchema[]>([])
 const resources = ref<ManagedResource[]>([])
 const accounts = ref<AccountSummary[]>([])
@@ -81,7 +76,11 @@ const activeSchema = computed(
   () => schemas.value.find((schema) => schema.type === activeView.value) ?? null,
 )
 const isResourceView = computed(
-  () => activeView.value !== 'ACCOUNTS' && activeView.value !== 'OPERATIONS',
+  () =>
+    activeView.value !== 'ACCOUNTS' &&
+    activeView.value !== 'OPERATIONS' &&
+    activeView.value !== 'LLM_CONFIG' &&
+    activeView.value !== 'LIBRARY_BOOKS',
 )
 
 const actionLabels: Record<string, string> = {
@@ -90,6 +89,14 @@ const actionLabels: Record<string, string> = {
   DEACTIVATE: '停用',
   IMPORT: '批量导入',
   ACCOUNT_STATUS: '账号状态',
+}
+const foodCategoryLabels: Record<string, string> = {
+  STAPLE: '主食',
+  MEAT: '荤菜',
+  VEGETABLE: '素菜',
+  SOUP: '汤品',
+  DRINK: '饮品',
+  SNACK: '小吃',
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -100,7 +107,9 @@ async function loadActive(): Promise<void> {
   loading.value = true
   try {
     const pageIndex = currentPage.value - 1
-    if (activeView.value === 'ACCOUNTS') {
+    if (activeView.value === 'LLM_CONFIG' || activeView.value === 'LIBRARY_BOOKS') {
+      total.value = 0
+    } else if (activeView.value === 'ACCOUNTS') {
       const page = await fetchAccounts(query.value, pageIndex)
       accounts.value = page.items
       total.value = page.total
@@ -182,14 +191,21 @@ async function saveResource(values: Record<string, unknown>): Promise<void> {
 
 async function deactivate(resource: ManagedResource): Promise<void> {
   if (!activeSchema.value) return
+  const isFood = activeSchema.value.type === 'DISH'
   try {
     await ElMessageBox.confirm(
-      `停用“${String(resource.values.name)}”后，后续业务默认不再使用该资料。`,
-      '确认停用资料',
-      { type: 'warning', confirmButtonText: '确认停用', cancelButtonText: '取消' },
+      isFood
+        ? `下架“${String(resource.values.name)}”后，学生端和 AI 推荐将不再使用该餐品。`
+        : `停用“${String(resource.values.name)}”后，后续业务默认不再使用该资料。`,
+      isFood ? '确认下架餐品' : '确认停用资料',
+      {
+        type: 'warning',
+        confirmButtonText: isFood ? '确认下架' : '确认停用',
+        cancelButtonText: '取消',
+      },
     )
     await deactivateResource(activeSchema.value.type, resource.id)
-    ElMessage.success('资料已停用')
+    ElMessage.success(isFood ? '餐品已下架' : '资料已停用')
     if (resources.value.length === 1 && currentPage.value > 1) currentPage.value -= 1
     await loadActive()
   } catch (error) {
@@ -254,8 +270,8 @@ onMounted(async () => {
   <main class="admin-shell">
     <header class="admin-topbar">
       <div>
-        <p class="eyebrow">School data registry</p>
-        <strong>校园资料管理台</strong>
+        <p class="eyebrow">校园数据管理</p>
+        <strong>智慧校园管理台</strong>
       </div>
       <div class="admin-identity">
         <span>{{ props.user.nickname }}</span>
@@ -282,21 +298,42 @@ onMounted(async () => {
       <section class="registry-canvas" v-loading="loading">
         <header class="registry-heading">
           <div>
-            <p class="eyebrow">统一信息资料管理</p>
+            <p class="eyebrow">
+              {{
+                activeView === 'DISH'
+                  ? '学生端在售目录'
+                  : activeView === 'KNOWLEDGE'
+                    ? 'RAG 问答资料'
+                    : '统一信息资料管理'
+              }}
+            </p>
             <h1 v-if="activeSchema">
               {{
-                activeSchema.type === 'KNOWLEDGE' ? activeSchema.label : `${activeSchema.label}资料`
+                activeSchema.type === 'DISH'
+                  ? '餐品管理'
+                  : activeSchema.type === 'KNOWLEDGE'
+                    ? activeSchema.label
+                    : `${activeSchema.label}资料`
               }}
             </h1>
+            <h1 v-else-if="activeView === 'LIBRARY_BOOKS'">图书管理</h1>
+            <h1 v-else-if="activeView === 'LLM_CONFIG'">大模型配置</h1>
             <h1 v-else-if="activeView === 'ACCOUNTS'">账号状态</h1>
             <h1 v-else>操作记录</h1>
-            <p>{{ total }} 条可管理记录</p>
+            <p v-if="activeView === 'LIBRARY_BOOKS'">在同一条记录中维护书籍信息与馆藏信息</p>
+            <p v-else-if="activeView === 'LLM_CONFIG'">控制智能推荐与问答使用的推理模型</p>
+            <p v-else-if="activeView === 'KNOWLEDGE'">
+              {{ total }} 块有效知识 · 保存后将在下一次校园问答前自动建立语义索引
+            </p>
+            <p v-else>{{ total }} 条可管理记录</p>
           </div>
           <div v-if="isResourceView" class="registry-actions">
             <el-input
               v-model="query"
               clearable
-              placeholder="按编码、名称或内容搜索"
+              :placeholder="
+                activeView === 'KNOWLEDGE' ? '搜索标题、分类或正文' : '按编码、名称或内容搜索'
+              "
               aria-label="搜索资料"
               @keyup.enter="searchActive"
             />
@@ -306,12 +343,25 @@ onMounted(async () => {
               aria-label="资料状态"
               @change="changeResourceStatus"
             >
-              <el-option label="有效资料" value="ACTIVE" />
-              <el-option label="已停用资料" value="INACTIVE" />
+              <el-option :label="activeView === 'DISH' ? '上架餐品' : '有效资料'" value="ACTIVE" />
+              <el-option
+                :label="activeView === 'DISH' ? '已下架餐品' : '已停用资料'"
+                value="INACTIVE"
+              />
             </el-select>
             <el-button @click="searchActive">搜索</el-button>
-            <el-button @click="importOpen = true">批量导入</el-button>
-            <el-button type="primary" @click="openCreate">新增资料</el-button>
+            <el-button
+              v-if="activeView !== 'DISH' && activeView !== 'KNOWLEDGE'"
+              @click="importOpen = true"
+              >批量导入</el-button
+            >
+            <el-button type="primary" @click="openCreate">{{
+              activeView === 'DISH'
+                ? '新增餐品'
+                : activeView === 'KNOWLEDGE'
+                  ? '新增知识'
+                  : '新增资料'
+            }}</el-button>
           </div>
           <div v-else-if="activeView === 'ACCOUNTS'" class="registry-actions">
             <el-input
@@ -325,6 +375,8 @@ onMounted(async () => {
           </div>
         </header>
 
+        <LibraryAdminPanel v-if="activeView === 'LIBRARY_BOOKS'" />
+        <LlmConfigPanel v-else-if="activeView === 'LLM_CONFIG'" />
         <el-empty
           v-if="isResourceView && !resources.length && !loading"
           :description="
@@ -332,21 +384,53 @@ onMounted(async () => {
           "
         />
         <el-table v-else-if="isResourceView" :data="resources" row-key="id">
-          <el-table-column label="资料" min-width="230">
+          <el-table-column
+            :label="
+              activeView === 'DISH' ? '餐品' : activeView === 'KNOWLEDGE' ? '知识标题' : '资料'
+            "
+            min-width="230"
+          >
             <template #default="scope">
               <strong>{{ scope.row.values.name }}</strong>
-              <code>{{ scope.row.values.code }}</code>
+              <code v-if="activeView !== 'KNOWLEDGE'">{{ scope.row.values.code }}</code>
+              <p v-else class="knowledge-preview">
+                {{ String(scope.row.values.body || '').slice(0, 90) }}
+              </p>
             </template>
           </el-table-column>
-          <el-table-column label="完整度" width="180">
+          <el-table-column v-if="activeView !== 'KNOWLEDGE'" label="完整度" width="180">
             <template #default="scope">
               <div class="table-quality">
                 <el-progress :percentage="scope.row.completeness" :stroke-width="6" />
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="来源" min-width="180">
-            <template #default="scope">{{ scope.row.values.source }}</template>
+          <el-table-column
+            :label="
+              activeView === 'DISH' ? '分类与价格' : activeView === 'KNOWLEDGE' ? '分类' : '来源'
+            "
+            min-width="180"
+          >
+            <template #default="scope">
+              <template v-if="activeView === 'DISH'">
+                {{ foodCategoryLabels[String(scope.row.values.category)] ?? '未分类' }} · ¥{{
+                  Number(scope.row.values.price).toFixed(2)
+                }}
+              </template>
+              <template v-else-if="activeView === 'KNOWLEDGE'">
+                <el-tag effect="plain">{{ scope.row.values.category }}</el-tag>
+              </template>
+              <template v-else>{{ scope.row.values.source }}</template>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="activeView === 'DISH'" label="供应状态" width="120">
+            <template #default="scope">
+              <el-tag
+                :type="scope.row.values.availabilityStatus === 'AVAILABLE' ? 'success' : 'warning'"
+              >
+                {{ scope.row.values.availabilityStatus === 'AVAILABLE' ? '在售' : '售罄' }}
+              </el-tag>
+            </template>
           </el-table-column>
           <el-table-column label="更新时间" width="170">
             <template #default="scope">{{ formatTime(scope.row.updatedAt) }}</template>
@@ -358,7 +442,9 @@ onMounted(async () => {
               </el-tag>
               <template v-else>
                 <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>
-                <el-button link type="danger" @click="deactivate(scope.row)">停用</el-button>
+                <el-button link type="danger" @click="deactivate(scope.row)">{{
+                  activeView === 'DISH' ? '下架' : '停用'
+                }}</el-button>
               </template>
             </template>
           </el-table-column>
@@ -394,7 +480,7 @@ onMounted(async () => {
           </el-table-column>
         </el-table>
 
-        <el-table v-else :data="operationLogs" row-key="id">
+        <el-table v-else-if="activeView === 'OPERATIONS'" :data="operationLogs" row-key="id">
           <el-table-column label="动作" width="110">
             <template #default="scope">
               <el-tag size="small" effect="plain">{{ actionLabel(scope.row.action) }}</el-tag>

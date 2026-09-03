@@ -4,6 +4,7 @@ package com.schoolagent.core.management;
 public enum FieldKind {
   TEXT,
   LONG_TEXT,
+  IMAGE,
   INTEGER,
   DECIMAL,
   URL,

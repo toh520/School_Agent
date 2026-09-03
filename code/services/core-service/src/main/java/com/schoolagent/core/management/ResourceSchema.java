@@ -49,19 +49,58 @@ public final class ResourceSchema {
     schemas.put(
         ResourceType.DISH,
         fields(
-            required("code", "菜品编码", FieldKind.TEXT, "稳定唯一编码"),
-            required("name", "菜品名称", FieldKind.TEXT, "菜单公示名称"),
-            required("stallCode", "所属窗口编码", FieldKind.TEXT, "必须引用已存在窗口"),
+            required("code", "餐品编码", FieldKind.TEXT, "稳定唯一编码，例如 FOOD-001"),
+            required("name", "餐品名称", FieldKind.TEXT, "学生端展示的名称"),
             required("price", "价格", FieldKind.DECIMAL, "人民币金额，不能为负数"),
-            optional("imageUrl", "图片地址", FieldKind.URL, "仅允许 HTTP/HTTPS 地址"),
+            select(
+                "category",
+                "餐品分类",
+                true,
+                List.of("STAPLE", "MEAT", "VEGETABLE", "SOUP", "DRINK", "SNACK"),
+                "主食、荤菜、素菜、汤品、饮品或小吃"),
+            required("description", "餐品介绍", FieldKind.LONG_TEXT, "介绍主要内容和餐品特点"),
+            recommended("imageUrl", "餐品图片", FieldKind.IMAGE, "上传一张本地餐品照片"),
+            select(
+                "mealRole",
+                "用餐角色",
+                true,
+                List.of("STAPLE", "MAIN", "SIDE", "SOUP_DRINK", "EXTRA"),
+                "用于组成合理套餐：主食、主菜、配菜、汤饮或加餐"),
             recommended("tastes", "口味", FieldKind.LIST, "多项使用竖线分隔"),
-            recommended("ingredientCodes", "食材编码", FieldKind.LIST, "引用已存在食材，使用竖线分隔"),
-            recommended("nutritionKcal", "单份热量（千卡）", FieldKind.DECIMAL, "非负数"),
-            recommended("nutritionProtein", "单份蛋白质（克）", FieldKind.DECIMAL, "非负数"),
+            required("ingredients", "主要食材", FieldKind.LIST, "至少填写一项，例如鸡肉、土豆、米饭"),
+            select(
+                "energyLevel",
+                "热量水平",
+                false,
+                List.of("UNKNOWN", "LOW", "MEDIUM", "HIGH"),
+                "选填；没有可靠信息时保持未知"),
+            select(
+                "proteinLevel",
+                "蛋白质水平",
+                false,
+                List.of("UNKNOWN", "LOW", "MEDIUM", "HIGH"),
+                "选填；没有可靠信息时保持未知"),
+            select(
+                "carbLevel",
+                "碳水水平",
+                false,
+                List.of("UNKNOWN", "LOW", "MEDIUM", "HIGH"),
+                "选填；没有可靠信息时保持未知"),
+            select(
+                "oilLevel",
+                "油脂水平",
+                false,
+                List.of("UNKNOWN", "LOW", "MEDIUM", "HIGH"),
+                "选填；可根据清蒸、炒制或油炸等方式判断"),
             recommended("allergens", "过敏原", FieldKind.LIST, "蛋类、奶类、坚果等"),
-            recommended("supplyPeriods", "供应时段", FieldKind.LIST, "早餐、午餐、晚餐"),
+            select(
+                "spiceLevel", "辣度", true, List.of("NONE", "MILD", "MEDIUM", "HOT"), "不辣、微辣、中辣或重辣"),
+            select(
+                "portionSize", "份量说明", false, List.of("SMALL", "STANDARD", "LARGE"), "小份、标准份或大份"),
+            recommended("suitableTags", "适用标签", FieldKind.LIST, "例如素食、低脂、高蛋白、饱腹"),
             select(
                 "availabilityStatus", "供应状态", true, List.of("AVAILABLE", "UNAVAILABLE"), "是否可供应"),
+            select("featured", "热门推荐", true, List.of("YES", "NO"), "是否在学生端优先展示"),
             required("source", "信息来源", FieldKind.TEXT, "菜单或窗口公示")));
     schemas.put(
         ResourceType.BOOK,
@@ -94,12 +133,11 @@ public final class ResourceSchema {
     schemas.put(
         ResourceType.KNOWLEDGE,
         fields(
-            required("code", "公告编码", FieldKind.TEXT, "稳定唯一编码，如 NOTICE-LIBRARY-01"),
-            required("name", "公告标题", FieldKind.TEXT, "概括正文内容的标题"),
-            required("category", "公告类别", FieldKind.TEXT, "例如办事指南、规章制度或活动通知"),
-            required("keywords", "检索关键词", FieldKind.LIST, "供后续检索使用，多项以竖线分隔"),
-            required("body", "公告正文", FieldKind.LONG_TEXT, "可直接作为后续问答依据的完整文字"),
-            required("source", "信息来源", FieldKind.TEXT, "公告发布页面、文件或责任部门")));
+            required("code", "知识编码", FieldKind.TEXT, "由系统自动生成"),
+            required("name", "标题", FieldKind.TEXT, "用一句话概括这块知识"),
+            required("category", "分类", FieldKind.TEXT, "例如办事指南、规章制度或校园服务"),
+            required("body", "正文", FieldKind.LONG_TEXT, "用于校园问答的完整文字内容"),
+            required("source", "信息来源", FieldKind.TEXT, "由系统自动维护")));
     schemas.put(
         ResourceType.SYSTEM_CONFIG,
         fields(

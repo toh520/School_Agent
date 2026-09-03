@@ -21,28 +21,29 @@ class ResourceValidatorTest {
   }
 
   @Test
-  void validatesDishReferencesAndNormalizesValues() {
-    when(repository.existsCode(ResourceType.STALL, "STALL-01", null)).thenReturn(true);
-    when(repository.existsCode(ResourceType.INGREDIENT, "ING-01", null)).thenReturn(true);
-
+  void validatesSingleCanteenFoodAndNormalizesValues() {
     ValidationResult result =
         validator.validate(
             ResourceType.DISH,
-            Map.of(
-                "code", "dish-01",
-                "name", "示例菜品",
-                "stallCode", "stall-01",
-                "price", "12.50",
-                "ingredientCodes", "ing-01",
-                "availabilityStatus", "available",
-                "source", "窗口公示"),
+            Map.ofEntries(
+                Map.entry("code", "dish-01"),
+                Map.entry("name", "示例餐品"),
+                Map.entry("price", "12.50"),
+                Map.entry("category", "meat"),
+                Map.entry("description", "用于智能食堂测试的餐品"),
+                Map.entry("mealRole", "main"),
+                Map.entry("ingredients", "鸡肉|青菜"),
+                Map.entry("spiceLevel", "mild"),
+                Map.entry("availabilityStatus", "available"),
+                Map.entry("featured", "yes"),
+                Map.entry("source", "窗口公示")),
             null,
             2);
 
     assertThat(result.errors()).isEmpty();
     assertThat(result.values().get("code")).isEqualTo("DISH-01");
-    assertThat(result.values().get("stallCode")).isEqualTo("STALL-01");
-    assertThat(result.values().get("ingredientCodes")).isEqualTo(List.of("ing-01"));
+    assertThat(result.values().get("category")).isEqualTo("MEAT");
+    assertThat(result.values().get("ingredients")).isEqualTo(List.of("鸡肉", "青菜"));
   }
 
   @Test
@@ -71,7 +72,7 @@ class ResourceValidatorTest {
   }
 
   @Test
-  void validatesSimpleAnnouncementTextForFutureRetrieval() {
+  void validatesSimpleKnowledgeTextForRetrieval() {
     ValidationResult result =
         validator.validate(
             ResourceType.KNOWLEDGE,
@@ -79,14 +80,13 @@ class ResourceValidatorTest {
                 "code", "NOTICE-01",
                 "name", "图书馆开放通知",
                 "category", "校园服务",
-                "keywords", "图书馆|开放时间|自习",
                 "body", "图书馆开放时间以学校最新公告为准。",
-                "source", "学校公开公告"),
+                "source", "校园知识库管理"),
             null,
             4);
 
     assertThat(result.errors()).isEmpty();
-    assertThat(result.values().get("keywords")).isEqualTo(List.of("图书馆", "开放时间", "自习"));
+    assertThat(result.values()).doesNotContainKey("keywords");
     assertThat(result.completeness()).isEqualTo(100);
   }
 

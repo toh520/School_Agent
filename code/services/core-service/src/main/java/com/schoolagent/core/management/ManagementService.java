@@ -64,7 +64,8 @@ public class ManagementService {
   @Transactional
   public ManagedResourceResponse create(
       CurrentIdentity actor, ResourceType type, Map<String, Object> rawValues, String requestId) {
-    ValidationResult validation = validator.validate(type, rawValues, null, 0);
+    ValidationResult validation =
+        validator.validate(type, withSystemValues(type, rawValues, null), null, 0);
     requireValid(validation);
     try {
       ManagedResource resource = repository.create(type, validation.values(), actor.userId());
@@ -82,8 +83,9 @@ public class ManagementService {
       UUID id,
       Map<String, Object> rawValues,
       String requestId) {
-    requireResource(type, id);
-    ValidationResult validation = validator.validate(type, rawValues, id, 0);
+    ManagedResource existing = requireResource(type, id);
+    ValidationResult validation =
+        validator.validate(type, withSystemValues(type, rawValues, existing), id, 0);
     requireValid(validation);
     try {
       ManagedResource resource = repository.update(type, id, validation.values(), actor.userId());
@@ -269,5 +271,30 @@ public class ManagementService {
 
   private int errorRows(List<FieldError> errors) {
     return (int) errors.stream().map(FieldError::row).filter(row -> row > 1).distinct().count();
+  }
+
+  private Map<String, Object> withSystemValues(
+      ResourceType type, Map<String, Object> rawValues, ManagedResource existing) {
+    if (type != ResourceType.DISH && type != ResourceType.KNOWLEDGE) {
+      return rawValues;
+    }
+    Map<String, Object> values = new LinkedHashMap<>(rawValues);
+    if (type == ResourceType.KNOWLEDGE) {
+      values.put(
+          "code",
+          existing == null
+              ? "KNOW-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()
+              : existing.code());
+      values.put("source", "校园知识库管理");
+      return values;
+    }
+    values.putIfAbsent(
+        "code", "FOOD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+    values.put("source", "智能食堂餐品管理");
+    values.putIfAbsent("energyLevel", "UNKNOWN");
+    values.putIfAbsent("proteinLevel", "UNKNOWN");
+    values.putIfAbsent("carbLevel", "UNKNOWN");
+    values.putIfAbsent("oilLevel", "UNKNOWN");
+    return values;
   }
 }

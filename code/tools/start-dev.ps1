@@ -21,10 +21,24 @@ New-Item -ItemType Directory -Force -Path $runtimeDirectory, $logDirectory | Out
 
 $coreJar = Join-Path $repositoryRoot 'code\services\core-service\target\core-service-0.1.0.jar'
 $agentPython = Join-Path $repositoryRoot 'code\services\agent-service\.venv\Scripts\python.exe'
+$agentSitePackages = Join-Path $repositoryRoot 'code\services\agent-service\.venv\Lib\site-packages'
 $viteEntry = Join-Path $repositoryRoot 'code\apps\web\node_modules\vite\bin\vite.js'
 foreach ($artifact in @($coreJar, $agentPython, $viteEntry)) {
     if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) {
         throw "Missing build artifact: $artifact. Run code/tools/test-all.ps1 first."
+    }
+}
+
+# Some Windows Conda installations can leave the venv launcher unable to
+# resolve its base interpreter even though the installed packages are intact.
+# Fall back to the activated Conda interpreter and reuse those site-packages.
+& $agentPython -c 'pass' 2>$null
+if ($LASTEXITCODE -ne 0) {
+    $agentPython = Require-Command 'python'
+    $env:PYTHONPATH = if ($env:PYTHONPATH) {
+        "$agentSitePackages;$($env:PYTHONPATH)"
+    } else {
+        $agentSitePackages
     }
 }
 
