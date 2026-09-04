@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test'
 
 const schema = {
-  type: 'CANTEEN',
-  label: '食堂',
-  csvHeader: 'code,name,location,openingHours,description,source',
+  type: 'SYSTEM_CONFIG',
+  label: '公共配置',
+  csvHeader: 'code,name,configValue,description,source',
   fields: [
     {
       key: 'code',
-      label: '食堂编码',
+      label: '配置键',
       kind: 'TEXT',
       required: true,
       recommended: false,
@@ -16,7 +16,7 @@ const schema = {
     },
     {
       key: 'name',
-      label: '食堂名称',
+      label: '配置名称',
       kind: 'TEXT',
       required: true,
       recommended: false,
@@ -24,22 +24,13 @@ const schema = {
       help: '正式名称',
     },
     {
-      key: 'location',
-      label: '位置',
-      kind: 'TEXT',
-      required: false,
-      recommended: true,
+      key: 'configValue',
+      label: '配置值',
+      kind: 'LONG_TEXT',
+      required: true,
+      recommended: false,
       options: [],
-      help: '校区或楼栋',
-    },
-    {
-      key: 'openingHours',
-      label: '开放时间',
-      kind: 'TEXT',
-      required: false,
-      recommended: true,
-      options: [],
-      help: '营业时间',
+      help: '非敏感公共配置',
     },
     {
       key: 'description',
@@ -97,6 +88,9 @@ function envelope(data: unknown) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/admin/management/resources/DISH*', (route) =>
+    route.fulfill({ json: envelope({ items: [], page: 0, size: 20, total: 0, totalPages: 0 }) }),
+  )
   await page.route('**/api/v1/auth/login', (route) =>
     route.fulfill({
       json: envelope({
@@ -124,25 +118,28 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.getByLabel('账号').fill('admin1')
   await page.getByLabel('密码').fill('Admin@123')
   await page.getByRole('button', { name: '登录', exact: true }).click()
+  // Generic CRUD/import now lives under public configuration, not the removed canteen view.
+  await page.getByRole('button', { name: '公共配置', exact: true }).click()
 }
 
 test('administrator sees the unified registry and creates a validated resource', async ({
   page,
 }) => {
   let created = false
-  await page.route('**/api/v1/admin/management/resources/CANTEEN*', async (route) => {
+  await page.route('**/api/v1/admin/management/resources/SYSTEM_CONFIG*', async (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON()
       expect(body.values).toMatchObject({
-        code: 'CANTEEN-WEST',
-        name: '西区食堂',
+        code: 'DISPLAY-TITLE',
+        name: '页面标题',
+        configValue: '智慧校园',
         source: '后勤公示',
       })
       created = true
       await route.fulfill({
         json: envelope({
           id: '30000000-0000-0000-0000-000000000001',
-          type: 'CANTEEN',
+          type: 'SYSTEM_CONFIG',
           values: body.values,
           status: 'ACTIVE',
           completeness: 80,
@@ -160,11 +157,12 @@ test('administrator sees the unified registry and creates a validated resource',
   })
 
   await loginAsAdmin(page)
-  await expect(page.getByRole('heading', { name: '食堂资料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '公共配置资料' })).toBeVisible()
   await page.getByRole('button', { name: '新增资料' }).click()
-  await page.getByLabel('食堂编码').fill('CANTEEN-WEST')
-  await page.getByLabel('食堂名称').fill('西区食堂')
-  await page.getByLabel('信息来源').fill('后勤公示')
+  await page.getByPlaceholder('稳定唯一编码').fill('DISPLAY-TITLE')
+  await page.getByPlaceholder('正式名称').fill('页面标题')
+  await page.getByPlaceholder('非敏感公共配置').fill('智慧校园')
+  await page.getByPlaceholder('责任部门').fill('后勤公示')
   await page.getByRole('button', { name: '创建资料' }).click()
 
   await expect.poll(() => created).toBe(true)
@@ -172,13 +170,13 @@ test('administrator sees the unified registry and creates a validated resource',
 })
 
 test('CSV preview identifies the exact invalid row and blocks commit', async ({ page }) => {
-  await page.route('**/api/v1/admin/management/resources/CANTEEN*', (route) =>
+  await page.route('**/api/v1/admin/management/resources/SYSTEM_CONFIG*', (route) =>
     route.fulfill({ json: envelope({ items: [], page: 0, size: 20, total: 0, totalPages: 0 }) }),
   )
   await page.route('**/api/v1/admin/management/imports/validate', (route) =>
     route.fulfill({
       json: envelope({
-        type: 'CANTEEN',
+        type: 'SYSTEM_CONFIG',
         totalRows: 1,
         validRows: 0,
         errors: [{ row: 2, field: 'source', message: '信息来源为必填项' }],
@@ -191,11 +189,9 @@ test('CSV preview identifies the exact invalid row and blocks commit', async ({ 
   await loginAsAdmin(page)
   await page.getByRole('button', { name: '批量导入' }).click()
   await page.getByLabel('选择CSV文件').setInputFiles({
-    name: 'canteen.csv',
+    name: 'config.csv',
     mimeType: 'text/csv',
-    buffer: Buffer.from(
-      'code,name,location,openingHours,description,source\nCANTEEN-X,临时食堂,,,,',
-    ),
+    buffer: Buffer.from('code,name,configValue,description,source\nDISPLAY-X,临时配置,测试,,'),
   })
   await page.getByRole('button', { name: '预校验' }).click()
 
@@ -206,7 +202,7 @@ test('CSV preview identifies the exact invalid row and blocks commit', async ({ 
 
 test('resource ledger paginates and filters inactive records', async ({ page }) => {
   const requests: string[] = []
-  await page.route('**/api/v1/admin/management/resources/CANTEEN*', (route) => {
+  await page.route('**/api/v1/admin/management/resources/SYSTEM_CONFIG*', (route) => {
     const url = new URL(route.request().url())
     requests.push(url.search)
     const status = url.searchParams.get('status') === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE'
@@ -216,8 +212,8 @@ test('resource ledger paginates and filters inactive records', async ({ page }) 
         items: [
           {
             id: `${status}-${pageIndex}`,
-            type: 'CANTEEN',
-            values: { code: `CANTEEN-${pageIndex}`, name: '分页资料', source: '后勤公示' },
+            type: 'SYSTEM_CONFIG',
+            values: { code: `CONFIG-${pageIndex}`, name: '分页资料', source: '后勤公示' },
             status,
             completeness: 75,
             createdBy: adminMe.profile.id,
@@ -251,7 +247,7 @@ test('resource ledger paginates and filters inactive records', async ({ page }) 
 
 test('operation ledger shows actor, action, resource and request id', async ({ page }) => {
   let requestedPage = -1
-  await page.route('**/api/v1/admin/management/resources/CANTEEN*', (route) =>
+  await page.route('**/api/v1/admin/management/resources/SYSTEM_CONFIG*', (route) =>
     route.fulfill({ json: envelope({ items: [], page: 0, size: 20, total: 0, totalPages: 0 }) }),
   )
   await page.route('**/api/v1/admin/management/operation-logs*', (route) => {

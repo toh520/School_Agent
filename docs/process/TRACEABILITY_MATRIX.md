@@ -8,7 +8,7 @@
 | IAM | FR-IAM-001～008 | 技术开发报告 M02、M02 身份用户与授权设计 | `core/identity`、`core/security`、Web 个人中心 | AT-01、AT-15、`M02_ACCEPTANCE.md` | 已验收 |
 | AGT | FR-AGT-001～010 | 技术开发报告 M04、M04 通用 Agent 平台设计、ADR-0001 | `agent-service` 工作流/模型/工具/持久化、Web 智能助手、Flyway V7 | `test_workflow.py`、`test_tools.py`、`agent.spec.ts`、`live-agent.spec.ts`、`M04_ACCEPTANCE.md` | 待验收 |
 | FOOD | FR-FOOD-001～015 | 技术开发报告 M05 | 待创建 | AT-02～04 | 待设计 |
-| EXAM | FR-EXAM-001～013 | 技术开发报告 M06 | 待创建 | AT-05～09 | 待设计 |
+| EXAM | FR-EXAM-001～020 | 技术开发报告 M06、M06 专项设计 | `core/exam`、`learning_service.py`、`study_materials.py`、Web 考试工作台、Flyway V19 | `ExamServiceTest`、`test_study_materials.py`、`test_learning_service.py`、`exam.spec.ts`、AT-05～09 | 开发完成，待验收 |
 | BOOK | FR-BOOK-001～012 | 技术开发报告 M07 | 待创建 | AT-10～12 | 待设计 |
 | QA | FR-QA-001～010 | 技术开发报告 M08、ADR-0001 | 待创建 | AT-13、AT-14 | 待设计 |
 | ADM | FR-ADM-001～008 | 技术开发报告 M03、M03 统一信息资料管理设计 | `core/management`、Web 管理台、Flyway V5/V6、M03 CSV 模板 | AT-16、AT-18、`M03_ACCEPTANCE.md` | 已验收 |

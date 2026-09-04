@@ -15,10 +15,12 @@ from agent_service.config import Settings, get_settings
 from agent_service.database import DatabaseHealth, probe_database
 from agent_service.identity import CoreIdentityClient, IdentityError
 from agent_service.knowledge_rag import KnowledgeRagService
+from agent_service.learning_service import LearningAssistantService, LearningRepository
 from agent_service.llm import ModelUnavailable, OpenAICompatibleModel
 from agent_service.logging_config import configure_logging
 from agent_service.middleware import RequestIdMiddleware, request_id_context
 from agent_service.schemas import AgentHealth, ApiError, ApiResponse, DatabaseStatus
+from agent_service.study_materials import StudyMaterialService
 from agent_service.tools import ToolExecutor, build_tool_registry
 from agent_service.workflow import IntentRouter, WorkflowEngine
 
@@ -47,6 +49,12 @@ def create_app(
         )
         application.state.model = model
         application.state.knowledge_rag = KnowledgeRagService(active_settings)
+        application.state.study_materials = StudyMaterialService(active_settings)
+        application.state.learning_assistant = LearningAssistantService(
+            model,
+            application.state.study_materials,
+            LearningRepository(active_settings),
+        )
         registry = build_tool_registry()
         application.state.tool_registry = registry
         application.state.agent_orchestrator = AgentOrchestrator(
@@ -111,6 +119,11 @@ def create_app(
     ) -> JSONResponse:
         del request, exception
         return error_response("MODEL_UNAVAILABLE", "AI 推荐暂时不可用，请稍后重试", 503)
+
+    @application.exception_handler(ValueError)
+    async def handle_invalid_result(request: Request, exception: ValueError) -> JSONResponse:
+        del request
+        return error_response("INVALID_REQUEST", str(exception), 400)
 
     @application.exception_handler(Exception)
     async def handle_unexpected(request: Request, exception: Exception) -> JSONResponse:

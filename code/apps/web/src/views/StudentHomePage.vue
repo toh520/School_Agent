@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
+import { fetchNextExam } from '../api/exam'
+import type { ExamRecord } from '../types/exam'
 import type { MeData, UserSummary } from '../types/identity'
 
 const props = defineProps<{ user: UserSummary; me: MeData }>()
+const nextExam = ref<ExamRecord | null>(null)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -13,7 +16,7 @@ const greeting = computed(() => {
   return '晚上好'
 })
 
-const services = [
+const services = computed(() => [
   {
     key: 'canteen',
     mark: '食',
@@ -34,9 +37,11 @@ const services = [
     key: 'exam',
     mark: '考',
     title: '考试助手',
-    description: '记录考试安排，主动生成可执行的复习计划。',
+    description: nextExam.value
+      ? `${nextExam.value.subject} · ${nextExam.value.examDate} ${nextExam.value.startTime.slice(0, 5)} · ${nextExam.value.location}`
+      : '记录考试安排，主动生成可执行的复习计划。',
     path: '/exam',
-    status: '界面已规划',
+    status: nextExam.value ? '最近考试' : '可添加考试',
   },
   {
     key: 'library',
@@ -46,7 +51,15 @@ const services = [
     path: '/library',
     status: '界面已规划',
   },
-]
+])
+
+onMounted(async () => {
+  try {
+    nextExam.value = await fetchNextExam()
+  } catch {
+    // The home page remains usable when the independent exam API is unavailable.
+  }
+})
 </script>
 
 <template>
@@ -57,7 +70,7 @@ const services = [
         <h1 id="home-title">{{ greeting }}，{{ user.nickname }}</h1>
         <p>今天想去哪里？从一个明确的校园任务开始。</p>
       </div>
-      <router-link class="home-profile-card" to="/profile" aria-label="进入个人中心">
+      <router-link class="home-profile-card" to="/profile" aria-label="学生校园卡，管理个人档案">
         <div class="campus-card-topline"><span>STUDENT PASS</span><span>智慧校园</span></div>
         <div class="campus-card-name">
           <span class="campus-card-avatar">{{ user.nickname.slice(0, 1) }}</span>

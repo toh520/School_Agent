@@ -109,6 +109,22 @@ public class UserDataRepository {
             "DELETE FROM user_long_term_memory WHERE user_id = ? AND data_scope = ?",
             userId,
             scope.name());
+    // Basic exam records remain user-controlled after consent withdrawal. Only AI-derived
+    // plans, practice evidence, and mastery summaries are removed for their matching scope.
+    if (scope == DataScope.EXAMS) {
+      deleted += jdbcTemplate.update("DELETE FROM review_plan WHERE user_id = ?", userId);
+      deleted +=
+          jdbcTemplate.update(
+              "DELETE FROM learning_activity WHERE user_id = ? AND activity_type = 'PLAN'", userId);
+    }
+    if (scope == DataScope.MASTERY) {
+      deleted += jdbcTemplate.update("DELETE FROM practice_item WHERE user_id = ?", userId);
+      deleted += jdbcTemplate.update("DELETE FROM knowledge_mastery WHERE user_id = ?", userId);
+      deleted +=
+          jdbcTemplate.update(
+              "DELETE FROM learning_activity WHERE user_id = ? AND activity_type <> 'PLAN'",
+              userId);
+    }
     UUID recordId = UUID.randomUUID();
     Instant completedAt = Instant.now();
     jdbcTemplate.update(

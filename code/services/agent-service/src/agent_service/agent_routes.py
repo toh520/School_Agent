@@ -1,12 +1,14 @@
 """Authenticated HTTP and SSE routes for the M04 student conversation workspace."""
 
+import hashlib
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, File, Header, Request, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
@@ -26,6 +28,17 @@ from agent_service.agent_models import (
 from agent_service.agent_repository import AgentRepository
 from agent_service.agent_service import AgentOrchestrator
 from agent_service.identity import CoreIdentityClient
+from agent_service.learning_models import (
+    LearningAnswer,
+    LearningRequest,
+    PracticeAttemptRequest,
+    PracticeAttemptView,
+    PracticeGenerateRequest,
+    PracticeItemView,
+    ReviewPlanRequest,
+    ReviewPlanView,
+)
+from agent_service.learning_service import LearningAssistantService
 from agent_service.library_recommendation import recommend_books
 from agent_service.llm import OpenAICompatibleModel
 from agent_service.middleware import request_id_context
@@ -47,6 +60,121 @@ async def identity(
 
 
 Actor = Annotated[IdentityContext, Depends(identity)]
+
+
+@router.post("/learning/answers")
+async def learning_answer(
+    payload: LearningRequest, request: Request, actor: Actor
+) -> ApiResponse[LearningAnswer]:
+    """Explain, solve, diagnose, or correct one course question using local materials."""
+
+    service: LearningAssistantService = request.app.state.learning_assistant
+    result = await service.answer(
+        actor.user_id, payload, record_activity=actor.authorizations.get("MASTERY", False)
+    )
+    return ApiResponse.ok(result, request_id_context.get())
+
+
+@router.post("/learning/practices")
+async def generate_learning_practices(
+    payload: PracticeGenerateRequest, request: Request, actor: Actor
+) -> ApiResponse[list[PracticeItemView]]:
+    """Generate and persist validated practice items with explicit provenance."""
+
+    if not actor.authorizations.get("MASTERY", False):
+        raise PermissionError("DATA_SCOPE_DENIED")
+    service: LearningAssistantService = request.app.state.learning_assistant
+    result = await service.generate_practice(actor.user_id, payload)
+    return ApiResponse.ok(result, request_id_context.get())
+
+
+@router.post("/learning/practice-attempts")
+async def evaluate_practice_attempt(
+    payload: PracticeAttemptRequest, request: Request, actor: Actor
+) -> ApiResponse[PracticeAttemptView]:
+    """Diagnose a complete work process and update mistakes and mastery evidence."""
+
+    if not actor.authorizations.get("MASTERY", False):
+        raise PermissionError("DATA_SCOPE_DENIED")
+    service: LearningAssistantService = request.app.state.learning_assistant
+    result = await service.evaluate_attempt(actor.user_id, payload)
+    return ApiResponse.ok(result, request_id_context.get())
+
+
+@router.post("/learning/review-plans")
+async def generate_review_plan(
+    payload: ReviewPlanRequest, request: Request, actor: Actor
+) -> ApiResponse[ReviewPlanView]:
+    """Generate a staged plan after deterministic allocation of the available minutes."""
+
+    if not actor.authorizations.get("EXAMS", False):
+        raise PermissionError("DATA_SCOPE_DENIED")
+    service: LearningAssistantService = request.app.state.learning_assistant
+    result = await service.create_plan(actor.user_id, payload)
+    return ApiResponse.ok(result, request_id_context.get())
+
+
+@router.get("/learning/review-plans")
+async def learning_plans(request: Request, actor: Actor) -> ApiResponse[list[dict]]:
+    service: LearningAssistantService = request.app.state.learning_assistant
+    return ApiResponse.ok(await service.plans(actor.user_id), request_id_context.get())
+
+
+@router.delete("/learning/review-plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_learning_plan(plan_id: UUID, request: Request, actor: Actor) -> None:
+    service: LearningAssistantService = request.app.state.learning_assistant
+    await service.delete_plan(actor.user_id, plan_id)
+
+
+@router.get("/learning/overview")
+async def learning_overview(request: Request, actor: Actor) -> ApiResponse[dict]:
+    if not actor.authorizations.get("MASTERY", False):
+        raise PermissionError("DATA_SCOPE_DENIED")
+    service: LearningAssistantService = request.app.state.learning_assistant
+    return ApiResponse.ok(await service.overview(actor.user_id), request_id_context.get())
+
+
+@router.post("/learning/attachments")
+async def upload_learning_attachment(
+    request: Request, actor: Actor, file: Annotated[UploadFile, File()]
+) -> ApiResponse[dict]:
+    """Store and extract one bounded user attachment without executing embedded content."""
+
+    suffix = Path(file.filename or "").suffix.lower()
+    allowed = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg"}
+    if suffix not in allowed:
+        raise ValueError("仅支持图片、PDF 和 Word 附件")
+    settings = request.app.state.settings
+    content = await file.read(settings.upload_max_bytes + 1)
+    if not content or len(content) > settings.upload_max_bytes:
+        raise ValueError("附件为空或超过大小限制")
+    upload_root = Path(settings.upload_root).resolve()
+    upload_root.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{UUID(str(actor.user_id)).hex}-{uuid4().hex}{suffix}"
+    stored_path = (upload_root / stored_name).resolve()
+    if upload_root not in stored_path.parents:
+        raise ValueError("附件路径无效")
+    await run_in_threadpool(stored_path.write_bytes, content)
+    service: LearningAssistantService = request.app.state.learning_assistant
+    result = await service.save_attachment(
+        actor.user_id,
+        Path(file.filename or "attachment").name[:255],
+        file.content_type or "application/octet-stream",
+        stored_path,
+        stored_name,
+        len(content),
+        hashlib.sha256(content).hexdigest(),
+    )
+    return ApiResponse.ok(result, request_id_context.get())
+
+
+@router.post("/learning/materials/sync")
+async def sync_learning_materials(request: Request, actor: Actor) -> ApiResponse[dict[str, int]]:
+    """Run the idempotent configured-course scanner without exposing local paths."""
+
+    del actor
+    result = await run_in_threadpool(request.app.state.study_materials.sync)
+    return ApiResponse.ok(result, request_id_context.get())
 
 
 @router.post("/library/recommendations")

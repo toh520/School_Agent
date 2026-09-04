@@ -1,12 +1,12 @@
 # School Agent｜智慧校园智能体系统
 
-本仓库是“2026 软件工程专业实习计划 v2”的团队项目仓库，用于建设面向学生的智慧校园 AI 助手。项目按 M01～M10 单模块串行开发，S1/M01、S2/M02 与 S3/M03 均已验收，S4/M04 已完成开发并等待非作者验收。
+本仓库是“2026 软件工程专业实习计划 v2”的团队项目仓库，用于建设面向学生的智慧校园 AI 助手。项目按 M01～M10 增量开发，当前已进入 M06 考试与学习助手阶段。
 
 ## 当前阶段
 
-- 当前状态：S4/M04 通用 Agent 平台开发完成，等待非作者验收
-- 已完成：多轮会话、四类意图与追问、LangGraph、模型适配、受控工具、SSE、降级、长期偏好和四类反馈
-- 明确未开展：食堂推荐、考试计划生成、图书推荐、文档解析检索和校园事实问答
+- 当前状态：M06 考试与学习助手已完成开发者实现与自测，等待非作者验收
+- 已完成：考试记录、课程资料增量索引、证据问答与纠错、步骤题解、错因诊断、个性化练习、学习记录和阶段复习计划
+- 首批资料课程：数据结构、算法设计与分析、计算机网络；配置可增量扩展
 - 需求基线：V1.0（2026-08-27）
 - 团队仓库：<https://github.com/toh520/School_Agent>
 
@@ -26,6 +26,8 @@
 前端完整依赖由 `package-lock.json` 锁定，Python 完整依赖由 `requirements.lock` 锁定，Java 依赖由 Maven POM、Spring Boot BOM 和插件版本共同锁定。
 
 ## 第一次启动
+
+队友接手M06可先看[课程资料、脱敏测试数据与启动说明](docs/process/M06_TEAM_HANDOFF.md)。
 
 以下命令在仓库根目录的 PowerShell 中执行。
 
@@ -81,6 +83,7 @@ Copy-Item code/deploy/.env.example code/deploy/.env.local
 - `V5__information_management.sql`：创建八类统一资料、管理操作日志、索引、引用约束及脱敏初始化数据；
 - `V6__simplify_knowledge_documents.sql`：将校园资料收敛为标题、类别、关键词、正文和来源的公告文本结构；
 - `V7__agent_platform.sql`：创建 Agent 会话、消息、任务、工具轨迹、结果版本和反馈表；
+- `V19__exam_learning_assistant.sql`：创建考试、复习计划、课程资料向量、附件、练习、错题、掌握度和学习活动表；
 - `R__sanitized_foundation_seed.sql`：写入不含账号和个人数据的基础种子标识。
 
 启动成功后访问：
@@ -94,7 +97,9 @@ M02 本地测试账号：学生 `student1` / `Student@123`，管理员 `admin1` 
 
 管理员登录后进入“校园资料管理台”。M03 的八类可重复 CSV 模板位于 `docs/templates/m03/`，详细设计和人工验收步骤见 `docs/design/M03-统一信息资料管理设计.md` 与 `docs/process/M03_ACCEPTANCE.md`。
 
-学生登录后可进入“智能助手”。M04 的实现边界和人工验收步骤见 `docs/design/M04-通用Agent平台设计.md` 与 `docs/process/M04_ACCEPTANCE.md`；当前回答只验证通用平台，不提供 M05～M08 的领域事实。
+学生登录后可进入“智能助手”。M04 的公共对话能力和人工验收步骤见 `docs/design/M04-通用Agent平台设计.md` 与 `docs/process/M04_ACCEPTANCE.md`；后续领域模块在此基础上增量接入。
+
+学生可在“考试助手”维护考试并进入学习工作区。M06 设计和验收步骤见 `docs/design/M06-考试与学习助手设计.md` 与 `docs/process/M06_ACCEPTANCE.md`。
 
 学生也可以在登录页切换到“注册”，使用学号、姓名、手机号、登录账号和密码创建账号。公开注册只会创建学生角色。
 
@@ -165,6 +170,8 @@ School_Agent/
 - [M02 开发完成与验收记录](docs/process/M02_ACCEPTANCE.md)
 - [M04 通用 Agent 平台设计](docs/design/M04-通用Agent平台设计.md)
 - [M04 开发完成与验收步骤](docs/process/M04_ACCEPTANCE.md)
+- [M06 考试与学习助手设计](docs/design/M06-考试与学习助手设计.md)
+- [M06 开发完成与验收步骤](docs/process/M06_ACCEPTANCE.md)
 - [项目过程日志](docs/process/PROJECT_LOG.md)
 - [需求追踪矩阵](docs/process/TRACEABILITY_MATRIX.md)
 - [测试与验收记录](docs/process/TEST_LOG.md)

@@ -23,7 +23,10 @@ class CoreIdentityClient:
         if not authorization or not authorization.startswith("Bearer "):
             raise IdentityError("UNAUTHENTICATED")
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            # This client only talks to the configured local core service. Ignoring
+            # OS proxy variables prevents loopback identity checks from being sent
+            # to a corporate/system proxy and misreported as authorization failures.
+            async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
                 response = await client.get(
                     f"{self._core_url}/api/v1/users/me",
                     headers={"Authorization": authorization, REQUEST_ID_HEADER: request_id},
