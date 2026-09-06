@@ -15,10 +15,13 @@ from agent_service.config import Settings, get_settings
 from agent_service.database import DatabaseHealth, probe_database
 from agent_service.identity import CoreIdentityClient, IdentityError
 from agent_service.knowledge_rag import KnowledgeRagService
-from agent_service.learning_service import LearningAssistantService, LearningRepository
+from agent_service.learning_repository import LearningRepository
+from agent_service.learning_service import LearningAssistantService
 from agent_service.llm import ModelUnavailable, OpenAICompatibleModel
 from agent_service.logging_config import configure_logging
 from agent_service.middleware import RequestIdMiddleware, request_id_context
+from agent_service.review_plan_routes import router as review_plan_router
+from agent_service.review_plan_service import ReviewPlanRepository, ReviewPlanService
 from agent_service.schemas import AgentHealth, ApiError, ApiResponse, DatabaseStatus
 from agent_service.study_materials import StudyMaterialService
 from agent_service.tools import ToolExecutor, build_tool_registry
@@ -50,10 +53,16 @@ def create_app(
         application.state.model = model
         application.state.knowledge_rag = KnowledgeRagService(active_settings)
         application.state.study_materials = StudyMaterialService(active_settings)
+        application.state.learning_repository = LearningRepository(active_settings)
         application.state.learning_assistant = LearningAssistantService(
             model,
             application.state.study_materials,
-            LearningRepository(active_settings),
+            application.state.learning_repository,
+        )
+        application.state.review_plans = ReviewPlanService(
+            model,
+            ReviewPlanRepository(active_settings),
+            active_settings.app_timezone,
         )
         registry = build_tool_registry()
         application.state.tool_registry = registry
@@ -76,6 +85,7 @@ def create_app(
     )
     application.add_middleware(RequestIdMiddleware)
     application.include_router(agent_router)
+    application.include_router(review_plan_router)
 
     def error_response(code: str, message: str, status_code: int) -> JSONResponse:
         response = ApiResponse[None](

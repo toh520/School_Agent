@@ -109,8 +109,8 @@ public class UserDataRepository {
             "DELETE FROM user_long_term_memory WHERE user_id = ? AND data_scope = ?",
             userId,
             scope.name());
-    // Basic exam records remain user-controlled after consent withdrawal. Only AI-derived
-    // plans, practice evidence, and mastery summaries are removed for their matching scope.
+    // Exam schedules are administrator-managed records, so revocation removes only plans derived
+    // from them. Practice evidence and mastery summaries follow their separate consent scope.
     if (scope == DataScope.EXAMS) {
       deleted += jdbcTemplate.update("DELETE FROM review_plan WHERE user_id = ?", userId);
       deleted +=

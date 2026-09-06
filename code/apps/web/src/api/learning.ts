@@ -20,6 +20,10 @@ export async function askLearningAssistant(input: {
   course: string
   prompt: string
   workProcess?: string
+  finalAnswer?: string
+  confusion?: string
+  learningGoal?: 'QUICK' | 'EXAM' | 'DEEP'
+  familiarity?: 'BEGINNER' | 'BASIC' | 'REVIEW'
   previousAnswer?: string
   correction?: string
   attachmentIds?: string[]
@@ -68,13 +72,6 @@ export async function evaluatePractice(input: {
   )
 }
 
-export async function generateReviewPlan(input: Record<string, unknown>): Promise<ReviewPlan> {
-  return dataOrThrow(
-    await agentHttp.post<ApiResponse<ReviewPlan>>('/learning/review-plans', input, { timeout: 0 }),
-    '复习计划生成失败',
-  )
-}
-
 export async function fetchLearningOverview(): Promise<LearningOverview> {
   return dataOrThrow(
     await agentHttp.get<ApiResponse<LearningOverview>>('/learning/overview'),
@@ -82,13 +79,42 @@ export async function fetchLearningOverview(): Promise<LearningOverview> {
   )
 }
 
-export async function fetchReviewPlans(): Promise<Array<Record<string, unknown>>> {
+export async function createReviewPlan(input: {
+  examIds: string[]
+  dailyMinutes: number
+  target: string
+  constraints: string
+}): Promise<ReviewPlan> {
   return dataOrThrow(
-    await agentHttp.get<ApiResponse<Array<Record<string, unknown>>>>('/learning/review-plans'),
+    await agentHttp.post<ApiResponse<ReviewPlan>>('/learning/review-plans', input, { timeout: 0 }),
+    '复习计划生成失败',
+  )
+}
+
+export async function fetchReviewPlans(): Promise<ReviewPlan[]> {
+  return dataOrThrow(
+    await agentHttp.get<ApiResponse<ReviewPlan[]>>('/learning/review-plans'),
     '复习计划加载失败',
+  )
+}
+
+export async function regenerateReviewPlan(planId: string): Promise<ReviewPlan> {
+  return dataOrThrow(
+    await agentHttp.post<ApiResponse<ReviewPlan>>(
+      `/learning/review-plans/${planId}/regenerate`,
+      undefined,
+      {
+        timeout: 0,
+      },
+    ),
+    '复习计划重新生成失败',
   )
 }
 
 export async function deleteReviewPlan(planId: string): Promise<void> {
   await agentHttp.delete(`/learning/review-plans/${planId}`)
+}
+
+export async function setMistakeMastery(mistakeId: string, mastered: boolean): Promise<void> {
+  await agentHttp.patch(`/learning/mistakes/${mistakeId}/mastery`, { mastered })
 }

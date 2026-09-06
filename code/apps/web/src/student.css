@@ -1841,7 +1841,7 @@
 }
 
 .next-exam-focus,
-.exam-plan-entry,
+.exam-learning-entry,
 .exam-timeline-panel,
 .exam-history {
   border: 1px solid var(--exam-rule);
@@ -1933,19 +1933,19 @@
   font-weight: 700;
 }
 
-.exam-plan-entry {
+.exam-learning-entry {
   padding: 30px;
   border-top: 5px solid var(--exam-accent);
 }
 
-.exam-plan-entry h2 {
+.exam-learning-entry h2 {
   margin: 10px 0 12px;
   font-family: Georgia, 'Microsoft YaHei', serif;
   font-size: 25px;
   font-weight: 500;
 }
 
-.exam-plan-entry > p:not(.panel-label) {
+.exam-learning-entry > p:not(.panel-label) {
   margin-bottom: 28px;
   color: var(--exam-muted);
   font-size: 13px;

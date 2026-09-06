@@ -19,20 +19,39 @@ export async function fetchNextExam(): Promise<ExamRecord | null> {
   return response.data.data
 }
 
-export async function createExam(input: ExamInput): Promise<ExamRecord> {
+export async function createAdminExam(userId: string, input: ExamInput): Promise<ExamRecord> {
   return dataOrThrow(
-    await authenticatedHttp.post<ApiResponse<ExamRecord>>('/exams', input),
+    await authenticatedHttp.post<ApiResponse<ExamRecord>>(
+      `/admin/management/exams/users/${userId}`,
+      input,
+    ),
     '考试安排保存失败',
   )
 }
 
-export async function updateExam(examId: string, input: ExamInput): Promise<ExamRecord> {
+export async function updateAdminExam(
+  userId: string,
+  examId: string,
+  input: ExamInput,
+): Promise<ExamRecord> {
   return dataOrThrow(
-    await authenticatedHttp.put<ApiResponse<ExamRecord>>(`/exams/${examId}`, input),
+    await authenticatedHttp.put<ApiResponse<ExamRecord>>(
+      `/admin/management/exams/users/${userId}/${examId}`,
+      input,
+    ),
     '考试安排更新失败',
   )
 }
 
-export async function deleteExam(examId: string): Promise<void> {
-  await authenticatedHttp.delete(`/exams/${examId}`)
+export async function deleteAdminExam(userId: string, examId: string): Promise<void> {
+  await authenticatedHttp.delete(`/admin/management/exams/users/${userId}/${examId}`)
+}
+
+export async function fetchAdminExams(userId: string): Promise<ExamRecord[]> {
+  return dataOrThrow(
+    await authenticatedHttp.get<ApiResponse<ExamRecord[]>>(
+      `/admin/management/exams/users/${userId}`,
+    ),
+    '考试安排加载失败',
+  )
 }

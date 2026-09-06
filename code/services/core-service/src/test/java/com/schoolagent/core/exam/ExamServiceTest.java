@@ -75,6 +75,19 @@ class ExamServiceTest {
     assertEquals(response, service.create(userId, request));
   }
 
+  @Test
+  void administratorCannotCreateScheduleForNonStudentAccount() {
+    UUID userId = UUID.randomUUID();
+    ExamUpsertRequest request = request(LocalTime.of(9, 0), LocalTime.of(11, 0));
+    when(repository.isStudent(userId)).thenReturn(false);
+
+    BusinessException error =
+        assertThrows(BusinessException.class, () -> service.adminCreate(userId, request));
+
+    assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+    verify(repository, never()).create(userId, request);
+  }
+
   private ExamUpsertRequest request(LocalTime start, LocalTime end) {
     return new ExamUpsertRequest("数据结构", LocalDate.of(2026, 9, 20), start, end, "教学楼 A201");
   }

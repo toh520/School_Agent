@@ -21,6 +21,7 @@ import type {
   ResourceType,
 } from '../types/management'
 import CsvImportPanel from './CsvImportPanel.vue'
+import ExamAdminPanel from './ExamAdminPanel.vue'
 import LlmConfigPanel from './LlmConfigPanel.vue'
 import LibraryAdminPanel from './LibraryAdminPanel.vue'
 import ResourceEditor from './ResourceEditor.vue'
@@ -28,7 +29,7 @@ import ResourceEditor from './ResourceEditor.vue'
 const props = defineProps<{ user: UserSummary }>()
 const emit = defineEmits<{ logout: [] }>()
 
-type AdminView = ResourceType | 'LIBRARY_BOOKS' | 'ACCOUNTS' | 'OPERATIONS' | 'LLM_CONFIG'
+type AdminView = ResourceType | 'LIBRARY_BOOKS' | 'EXAMS' | 'ACCOUNTS' | 'OPERATIONS' | 'LLM_CONFIG'
 
 const navigation: Array<{ title: string; items: Array<{ key: AdminView; label: string }> }> = [
   {
@@ -39,6 +40,7 @@ const navigation: Array<{ title: string; items: Array<{ key: AdminView; label: s
     title: '图书资料',
     items: [{ key: 'LIBRARY_BOOKS', label: '图书管理' }],
   },
+  { title: '考试管理', items: [{ key: 'EXAMS', label: '考试安排' }] },
   {
     title: '校园资料',
     items: [
@@ -80,7 +82,8 @@ const isResourceView = computed(
     activeView.value !== 'ACCOUNTS' &&
     activeView.value !== 'OPERATIONS' &&
     activeView.value !== 'LLM_CONFIG' &&
-    activeView.value !== 'LIBRARY_BOOKS',
+    activeView.value !== 'LIBRARY_BOOKS' &&
+    activeView.value !== 'EXAMS',
 )
 
 const actionLabels: Record<string, string> = {
@@ -107,7 +110,11 @@ async function loadActive(): Promise<void> {
   loading.value = true
   try {
     const pageIndex = currentPage.value - 1
-    if (activeView.value === 'LLM_CONFIG' || activeView.value === 'LIBRARY_BOOKS') {
+    if (
+      activeView.value === 'LLM_CONFIG' ||
+      activeView.value === 'LIBRARY_BOOKS' ||
+      activeView.value === 'EXAMS'
+    ) {
       total.value = 0
     } else if (activeView.value === 'ACCOUNTS') {
       const page = await fetchAccounts(query.value, pageIndex)
@@ -318,6 +325,7 @@ onMounted(async () => {
             </h1>
             <h1 v-else-if="activeView === 'LIBRARY_BOOKS'">图书管理</h1>
             <h1 v-else-if="activeView === 'LLM_CONFIG'">大模型配置</h1>
+            <h1 v-else-if="activeView === 'EXAMS'">考试安排</h1>
             <h1 v-else-if="activeView === 'ACCOUNTS'">账号状态</h1>
             <h1 v-else>操作记录</h1>
             <p v-if="activeView === 'LIBRARY_BOOKS'">在同一条记录中维护书籍信息与馆藏信息</p>
@@ -325,6 +333,7 @@ onMounted(async () => {
             <p v-else-if="activeView === 'KNOWLEDGE'">
               {{ total }} 块有效知识 · 保存后将在下一次校园问答前自动建立语义索引
             </p>
+            <p v-else-if="activeView === 'EXAMS'">为学生统一发布和维护考试时间、科目与地点</p>
             <p v-else>{{ total }} 条可管理记录</p>
           </div>
           <div v-if="isResourceView" class="registry-actions">
@@ -377,6 +386,7 @@ onMounted(async () => {
 
         <LibraryAdminPanel v-if="activeView === 'LIBRARY_BOOKS'" />
         <LlmConfigPanel v-else-if="activeView === 'LLM_CONFIG'" />
+        <ExamAdminPanel v-else-if="activeView === 'EXAMS'" />
         <el-empty
           v-if="isResourceView && !resources.length && !loading"
           :description="

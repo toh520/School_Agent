@@ -288,3 +288,62 @@ test('operation ledger shows actor, action, resource and request id', async ({ p
   await page.locator('.el-pager li').filter({ hasText: '2' }).click()
   await expect.poll(() => requestedPage).toBe(1)
 })
+
+test('exam deletion failure keeps the row and gives a recoverable error', async ({ page }) => {
+  const studentId = '10000000-0000-0000-0000-000000000001'
+  await page.route('**/api/v1/admin/management/accounts*', (route) =>
+    route.fulfill({
+      json: envelope({
+        items: [
+          {
+            id: studentId,
+            username: 'student1',
+            role: 'STUDENT',
+            status: 'ACTIVE',
+            nickname: '学生用户一',
+            createdAt: '2026-08-31T12:00:00Z',
+            updatedAt: '2026-08-31T12:00:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        total: 1,
+        totalPages: 1,
+      }),
+    }),
+  )
+  await page.route(`**/api/v1/admin/management/exams/users/${studentId}*`, (route) => {
+    if (route.request().method() === 'DELETE') {
+      return route.fulfill({
+        status: 500,
+        json: { ...envelope(null), success: false, error: { code: 'FAILED', message: '删除失败' } },
+      })
+    }
+    return route.fulfill({
+      json: envelope([
+        {
+          id: '40000000-0000-0000-0000-000000000001',
+          subject: '算法设计与分析',
+          examDate: '2026-09-20',
+          startTime: '09:00:00',
+          endTime: '11:00:00',
+          location: '博学楼 A101',
+          createdAt: '2026-09-01T12:00:00Z',
+          updatedAt: '2026-09-01T12:00:00Z',
+        },
+      ]),
+    })
+  })
+
+  await loginAsAdmin(page)
+  await page.getByRole('button', { name: '考试安排', exact: true }).click()
+  await page.locator('.exam-admin-toolbar .el-select__wrapper').click()
+  await page.getByRole('option', { name: '学生用户一（student1）' }).click()
+  await expect(page.getByRole('cell', { name: '算法设计与分析' })).toBeVisible()
+
+  await page.getByRole('button', { name: '删除', exact: true }).click()
+  await page.locator('.el-message-box__btns .el-button--primary').click()
+
+  await expect(page.getByText('考试安排删除失败，请刷新后重试')).toBeVisible()
+  await expect(page.getByRole('cell', { name: '算法设计与分析' })).toBeVisible()
+})

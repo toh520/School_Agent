@@ -95,6 +95,15 @@ const testAnswer = {
   validationStatus: 'PARTIAL',
   sources: [],
   limitations: ['资料不足'],
+  prerequisiteKnowledge: [],
+  keyConcepts: [],
+  keyClaims: [],
+  workedExample: '',
+  commonMistakes: [],
+  memoryTip: '',
+  selfTestQuestion: '',
+  selfTestAnswer: '',
+  evidenceConflicts: [],
 }
 
 async function openLearning(page: Page) {
@@ -113,8 +122,27 @@ test('saved attempt details remain readable after reload', async ({ page }) => {
         error: null,
         data: {
           activities: [],
-          mistakes: [],
-          mastery: [],
+          mistakes: [
+            {
+              id: 'mistake-1',
+              course: '数据结构',
+              knowledge_point: '树的遍历',
+              score: 80,
+              question_type: '计算题',
+              prompt: '历史题目',
+              work_process: '先访问B再访问A',
+              final_answer: 'BAC',
+              standard_answer: 'ABC',
+              step_analysis: '先根再左再右',
+              cause_type: 'REASONING',
+              diagnosis: { items: ['第一步顺序错误'] },
+              corrected_conclusion: '前序必须先访问根节点',
+              review_suggestion: '复习前序定义',
+              source_label: 'AI 生成',
+              validation_status: 'PARTIAL',
+              created_at: '2026-09-04T00:00:00Z',
+            },
+          ],
           practices: [],
           attempts: [
             {
@@ -138,9 +166,8 @@ test('saved attempt details remain readable after reload', async ({ page }) => {
   )
   await openLearning(page)
   for (let i = 0; i < 2; i++) {
-    await page.getByRole('button', { name: '错题与掌握度', exact: true }).click()
-    await page.locator('summary').filter({ hasText: '80分' }).click()
-    await expect(page.getByText('我的过程：先访问B再访问A')).toBeVisible()
+    await page.getByRole('button', { name: '错题本', exact: true }).click()
+    await expect(page.getByText('先访问B再访问A')).toBeVisible()
     await expect(page.getByText('第一步顺序错误')).toBeVisible()
     if (i === 0) {
       await page.reload()
@@ -157,10 +184,10 @@ test('long conversation stays bounded and preserves initial problem', async ({ p
   })
   await openLearning(page)
   for (let index = 0; index < 9; index++) {
-    await page.getByPlaceholder('输入知识点或题目…').fill(`第${index}次问题`)
-    await page.getByRole('button', { name: '开始讲解' }).click()
+    await page.getByPlaceholder(/输入知识点/).fill(`第${index}次问题`)
+    await page.getByRole('button', { name: '生成分层讲义' }).click()
     await expect.poll(() => requests.length).toBe(index + 1)
-    await expect(page.getByRole('button', { name: '开始讲解' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '生成分层讲义' })).toBeEnabled()
   }
   expect(requests[8]!.history).toHaveLength(12)
   expect(requests[8]!.history[0]!.content).toContain('第0次问题')
@@ -183,22 +210,22 @@ test('model failure does not add failed turns and records remain accessible', as
     route.fulfill({
       json: {
         success: true,
-        data: { activities: [], mistakes: [], mastery: [], practices: [] },
+        data: { activities: [], mistakes: [], practices: [] },
         error: null,
       },
     }),
   )
   await openLearning(page)
-  await page.getByPlaceholder('输入知识点或题目…').fill('第一次问题')
+  await page.getByPlaceholder(/输入知识点/).fill('第一次问题')
   for (let index = 0; index < 3; index++) {
-    await page.getByRole('button', { name: '开始讲解' }).click()
+    await page.getByRole('button', { name: '生成分层讲义' }).click()
     await expect.poll(() => calls).toBe(index + 1)
-    await expect(page.getByRole('button', { name: '开始讲解' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '生成分层讲义' })).toBeEnabled()
   }
   expect(lastHistory).toHaveLength(2)
   await expect(page.getByText('测试结论')).toBeVisible()
   const loaded = page.waitForResponse('**/agent-api/v1/learning/overview')
-  await page.getByRole('button', { name: '错题与掌握度', exact: true }).click()
+  await page.getByRole('button', { name: '错题本', exact: true }).click()
   expect((await loaded).status()).toBe(200)
 })
 
@@ -214,45 +241,79 @@ test('switching course away and back discards in-flight answer', async ({ page }
     await route.fulfill({ json: { success: true, data: testAnswer, error: null } })
   })
   await openLearning(page)
-  await page.getByPlaceholder('输入知识点或题目…').fill('旧话题问题')
-  await page.getByRole('button', { name: '开始讲解' }).click()
+  await page.getByPlaceholder(/输入知识点/).fill('旧话题问题')
+  await page.getByRole('button', { name: '生成分层讲义' }).click()
   await expect.poll(() => received).toBe(true)
   for (const course of ['计算机网络', '数据结构']) {
-    await page.locator('.learning-choice-row .el-select__wrapper').click()
+    await page
+      .locator('.question-sheet .compact-fields .field-block')
+      .first()
+      .locator('.el-select__wrapper')
+      .click()
     await page.getByRole('option', { name: course, exact: true }).click()
   }
   release()
-  await expect(page.getByRole('button', { name: '开始讲解' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '生成分层讲义' })).toBeEnabled()
   await expect(page.getByText('测试结论')).toHaveCount(0)
 })
 
-test('student creates an exam and sees it on the ordered timeline', async ({ page }) => {
-  const exams: object[] = []
-  await page.route('**/api/v1/exams', async (route) => {
-    if (route.request().method() === 'POST') {
-      const input = route.request().postDataJSON()
-      exams.push({
-        id: examId,
-        ...input,
-        createdAt: '2026-09-03T00:00:00Z',
-        updatedAt: '2026-09-03T00:00:00Z',
-      })
-      await route.fulfill({ json: { success: true, data: exams[0], error: null } })
-      return
-    }
-    await route.fulfill({ json: { success: true, data: exams, error: null } })
-  })
-
+test('student can only view administrator-published exams', async ({ page }) => {
+  await page.route('**/api/v1/exams', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: [
+          {
+            id: examId,
+            subject: '数据结构',
+            examDate: '2026-12-20',
+            startTime: '09:00:00',
+            endTime: '11:00:00',
+            location: '教学楼 A201',
+            createdAt: '2026-09-03T00:00:00Z',
+            updatedAt: '2026-09-03T00:00:00Z',
+          },
+        ],
+        error: null,
+      },
+    }),
+  )
   await login(page)
-  await page.getByRole('button', { name: '添加考试', exact: true }).click()
-  await page.getByPlaceholder('例如：数据结构').fill('数据结构')
-  await page.getByPlaceholder('选择日期').fill('2026-12-20')
-  await page.getByPlaceholder('例如：教学楼 A201').fill('教学楼 A201')
-  await page.getByRole('button', { name: '保存安排' }).click()
-
   await expect(page.getByText('数据结构').first()).toBeVisible()
   await expect(page.getByText('教学楼 A201').first()).toBeVisible()
-  expect(exams).toHaveLength(1)
+  await expect(page.getByRole('button', { name: '添加考试' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '编辑' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '删除' })).toHaveCount(0)
+})
+
+test('an exam already in progress does not say it starts later', async ({ page }) => {
+  const today = new Date()
+  const examDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  await page.route('**/api/v1/exams', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: [
+          {
+            id: examId,
+            subject: '正在考试科目',
+            examDate,
+            startTime: '00:00:00',
+            endTime: '23:59:59',
+            location: '教学楼 A201',
+            createdAt: `${examDate}T00:00:00Z`,
+            updatedAt: `${examDate}T00:00:00Z`,
+          },
+        ],
+        error: null,
+      },
+    }),
+  )
+
+  await login(page)
+  const focus = page.locator('.exam-focus-date')
+  await expect(focus).toContainText('正在进行')
+  await expect(focus).not.toContainText('后开始')
 })
 
 test('student asks a grounded question and can submit a correction', async ({ page }) => {
@@ -277,8 +338,37 @@ test('student asks a grounded question and can submit a correction', async ({ pa
           correctedPoints: requestedMode === 'CORRECT' ? ['已补充空树边界'] : [],
           verification: '与课程资料定义一致',
           validationStatus: 'MATERIAL_SUPPORTED',
-          sources: [{ materialId: 'm1', fileName: '数据结构.pdf', locator: '第 2 页' }],
+          sources: [
+            {
+              materialId: 'm1',
+              fileName: '数据结构.pdf',
+              locator: '第 2 页',
+              snippet: '树的高度等于左右子树最大高度加一。',
+            },
+          ],
           limitations: [],
+          prerequisiteKnowledge: ['递归'],
+          keyConcepts: ['空树边界', '子树高度'],
+          keyClaims: [
+            {
+              text: '高度等于左右子树最大高度加一',
+              origin: 'COURSE_MATERIAL',
+              sources: [
+                {
+                  materialId: 'm1',
+                  fileName: '数据结构.pdf',
+                  locator: '第 2 页',
+                  snippet: '树的高度等于左右子树最大高度加一。',
+                },
+              ],
+            },
+          ],
+          workedExample: '空树高度按课程约定处理。',
+          commonMistakes: ['遗漏空树边界'],
+          memoryTip: '先递归子树，再取最大值。',
+          selfTestQuestion: '只有根节点的树高度是多少？',
+          selfTestAnswer: '按边计数为 0，按层计数为 1。',
+          evidenceConflicts: [],
         },
         error: null,
       },
@@ -287,22 +377,104 @@ test('student asks a grounded question and can submit a correction', async ({ pa
 
   await login(page)
   await page.getByRole('button', { name: 'AI 学习工作台', exact: true }).click()
-  await page.getByPlaceholder('输入知识点或题目…').fill('如何计算二叉树高度？')
-  await page.getByRole('button', { name: '开始讲解' }).click()
+  await page.getByPlaceholder(/输入知识点/).fill('如何计算二叉树高度？')
+  await page.getByRole('button', { name: '生成分层讲义' }).click()
   await expect(page.getByText('高度等于两棵子树较大高度加一。')).toBeVisible()
-  await expect(page.getByText('参考：数据结构.pdf（第 2 页）')).toBeVisible()
-  await page.getByPlaceholder('这里不对，或者请换一种讲法…').fill('请补充空树的情况')
-  await page.getByRole('button', { name: '检查并重新讲解' }).click()
+  await expect(page.getByText('课程资料依据')).toBeVisible()
+  await page.getByText('数据结构.pdf · 第 2 页').click()
+  await expect(page.getByText('树的高度等于左右子树最大高度加一。')).toBeVisible()
+  await page.getByPlaceholder('指出疑问、资料冲突，或要求换一种讲法').fill('请补充空树的情况')
+  await page.getByRole('button', { name: '核对并修正' }).click()
   await expect(page.getByText('已补充空树边界')).toBeVisible()
   expect(requestedMode).toBe('CORRECT')
   expect(requestHistory[0]?.content).toContain('如何计算二叉树高度')
-  await page.getByPlaceholder('输入知识点或题目…').fill('刚才空树边界再解释一下')
-  await page.getByRole('button', { name: '开始讲解' }).click()
+  await page.getByPlaceholder(/输入知识点/).fill('刚才空树边界再解释一下')
+  await page.getByRole('button', { name: '生成分层讲义' }).click()
   await expect.poll(() => requestHistory.length).toBe(4)
   expect(requestHistory[2]?.content).toContain('请补充空树的情况')
-  await expect(page.getByRole('button', { name: '开始讲解' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '生成分层讲义' })).toBeEnabled()
   await page.getByRole('button', { name: '新话题', exact: true }).click()
-  await page.getByPlaceholder('输入知识点或题目…').fill('新题：图的遍历')
-  await page.getByRole('button', { name: '开始讲解' }).click()
+  await page.getByPlaceholder(/输入知识点/).fill('新题：图的遍历')
+  await page.getByRole('button', { name: '生成分层讲义' }).click()
   await expect.poll(() => requestHistory.length).toBe(0)
+})
+
+test('student generates a traceable review plan with fixed stage quotas', async ({ page }) => {
+  await page.route('**/api/v1/exams', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        error: null,
+        data: [
+          {
+            id: examId,
+            subject: '数据结构',
+            examDate: '2026-12-20',
+            startTime: '09:00:00',
+            endTime: '11:00:00',
+            location: '教学楼 A201',
+            createdAt: '2026-09-03T00:00:00Z',
+            updatedAt: '2026-09-05T00:00:00Z',
+          },
+        ],
+      },
+    }),
+  )
+  let savedPlan: Record<string, unknown> | null = null
+  await page.route('**/agent-api/v1/learning/review-plans', async (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        json: { success: true, data: savedPlan ? [savedPlan] : [], error: null },
+      })
+    }
+    const input = route.request().postDataJSON()
+    savedPlan = {
+      id: 'plan-1',
+      planGroupId: 'group-1',
+      versionNumber: 1,
+      isCurrent: true,
+      title: '数据结构复习计划',
+      status: 'ACTIVE',
+      target: input.target,
+      constraints: input.constraints,
+      inputSnapshot: input,
+      priorityExplanation: '按考试迫近程度与错题证据分配时间。',
+      assumptions: ['每日按设定时长学习'],
+      limitations: ['不替代学校通知'],
+      totalMinutes: 600,
+      modelName: 'test-model',
+      dataAsOf: '2026-09-06T08:00:00Z',
+      createdAt: '2026-09-06T08:00:00Z',
+      stale: false,
+      exams: [],
+      stages: [
+        {
+          id: 'stage-1',
+          stageIndex: 0,
+          name: '数据结构 · 基础回顾',
+          phase: 'FOUNDATION',
+          startDate: '2026-09-06',
+          endDate: '2026-12-10',
+          subject: '数据结构',
+          knowledgePoints: ['树的遍历'],
+          objective: '建立知识框架',
+          suggestedMinutes: 330,
+          method: '精读讲义并整理错题',
+          rationale: '树的遍历有未掌握错题证据',
+        },
+      ],
+    }
+    return route.fulfill({ json: { success: true, data: savedPlan, error: null } })
+  })
+
+  await login(page)
+  await page.getByRole('button', { name: 'AI 学习工作台', exact: true }).click()
+  await page.getByRole('button', { name: '复习计划', exact: true }).click()
+  await page.getByText('数据结构').last().click()
+  await page.getByPlaceholder('例如：掌握核心题型，稳定达到 80 分').fill('稳定达到 80 分')
+  await page.getByRole('button', { name: '生成并保存计划' }).click()
+
+  await expect(page.getByText('600 分钟')).toBeVisible()
+  await expect(page.getByText('建立知识框架')).toBeVisible()
+  await expect(page.getByText('树的遍历有未掌握错题证据')).toBeVisible()
 })

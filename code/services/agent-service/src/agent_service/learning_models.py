@@ -1,6 +1,5 @@
 """Validated contracts for M06 tutoring, practice generation, and review plans."""
 
-from datetime import date
 from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID
@@ -15,6 +14,18 @@ class LearningMode(StrEnum):
     SOLVE = "SOLVE"
     DIAGNOSE = "DIAGNOSE"
     CORRECT = "CORRECT"
+
+
+class LearningGoal(StrEnum):
+    QUICK = "QUICK"
+    EXAM = "EXAM"
+    DEEP = "DEEP"
+
+
+class LearningFamiliarity(StrEnum):
+    BEGINNER = "BEGINNER"
+    BASIC = "BASIC"
+    REVIEW = "REVIEW"
 
 
 class LearningTurn(AgentModel):
@@ -32,17 +43,35 @@ class LearningRequest(AgentModel):
     course: str = Field(min_length=1, max_length=120)
     prompt: str = Field(min_length=2, max_length=12000)
     work_process: str = Field(default="", max_length=12000, alias="workProcess")
+    final_answer: str = Field(default="", max_length=4000, alias="finalAnswer")
+    confusion: str = Field(default="", max_length=4000)
+    learning_goal: LearningGoal = Field(default=LearningGoal.EXAM, alias="learningGoal")
+    familiarity: LearningFamiliarity = LearningFamiliarity.BASIC
     previous_answer: str = Field(default="", max_length=12000, alias="previousAnswer")
     correction: str = Field(default="", max_length=4000)
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=5, alias="attachmentIds")
     history: list[LearningTurn] = Field(default_factory=list, max_length=12)
 
     @field_validator(
-        "course", "prompt", "work_process", "previous_answer", "correction", mode="before"
+        "course",
+        "prompt",
+        "work_process",
+        "final_answer",
+        "confusion",
+        "previous_answer",
+        "correction",
+        mode="before",
     )
     @classmethod
     def trim_text(cls, value: Any) -> Any:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("attachment_ids")
+    @classmethod
+    def unique_attachments(cls, value: list[UUID]) -> list[UUID]:
+        if len(value) != len(set(value)):
+            raise ValueError("请勿重复提交同一附件")
+        return value
 
     @model_validator(mode="after")
     def require_mode_context(self) -> "LearningRequest":
@@ -59,6 +88,15 @@ class LearningSource(AgentModel):
     material_id: str = Field(alias="materialId")
     file_name: str = Field(alias="fileName")
     locator: str
+    snippet: str = ""
+
+
+class LearningClaim(AgentModel):
+    """A displayable conclusion whose provenance has been validated by the service."""
+
+    text: str
+    origin: Literal["COURSE_MATERIAL", "USER_ATTACHMENT", "AI_SUPPLEMENT"]
+    sources: list[LearningSource] = Field(default_factory=list)
 
 
 class LearningAnswer(AgentModel):
@@ -73,6 +111,15 @@ class LearningAnswer(AgentModel):
     validation_status: str = Field(alias="validationStatus")
     sources: list[LearningSource] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
+    prerequisite_knowledge: list[str] = Field(default_factory=list, alias="prerequisiteKnowledge")
+    key_concepts: list[str] = Field(default_factory=list, alias="keyConcepts")
+    key_claims: list[LearningClaim] = Field(default_factory=list, alias="keyClaims")
+    worked_example: str = Field(default="", alias="workedExample")
+    common_mistakes: list[str] = Field(default_factory=list, alias="commonMistakes")
+    memory_tip: str = Field(default="", alias="memoryTip")
+    self_test_question: str = Field(default="", alias="selfTestQuestion")
+    self_test_answer: str = Field(default="", alias="selfTestAnswer")
+    evidence_conflicts: list[str] = Field(default_factory=list, alias="evidenceConflicts")
 
 
 class PracticeGenerateRequest(AgentModel):
@@ -135,54 +182,6 @@ class PracticeAttemptView(AgentModel):
     review_suggestion: str = Field(alias="reviewSuggestion")
 
 
-class PlanExam(AgentModel):
-    id: UUID
-    subject: str = Field(min_length=1, max_length=120)
-    exam_date: str = Field(alias="examDate")
-    difficulty: int = Field(ge=1, le=5)
-    mastery: int = Field(ge=0, le=100)
-    scope: str = Field(min_length=1, max_length=1000)
-
-    @field_validator("subject", "scope", mode="before")
-    @classmethod
-    def trim_text(cls, value: Any) -> Any:
-        return value.strip() if isinstance(value, str) else value
-
-    @field_validator("exam_date")
-    @classmethod
-    def valid_date(cls, value: str) -> str:
-        """Reject impossible dates at the API boundary, before model invocation."""
-        return date.fromisoformat(value).isoformat()
-
-
-class ReviewPlanRequest(AgentModel):
-    exams: list[PlanExam] = Field(min_length=1, max_length=10)
-    total_minutes: int = Field(ge=30, le=100000, alias="totalMinutes")
-    goal: str = Field(min_length=2, max_length=500)
-    preference: str = Field(default="", max_length=500)
-
-    @field_validator("goal", "preference", mode="before")
-    @classmethod
-    def trim_text(cls, value: Any) -> Any:
-        return value.strip() if isinstance(value, str) else value
-
-    @model_validator(mode="after")
-    def unique_exams(self) -> "ReviewPlanRequest":
-        if len({exam.id for exam in self.exams}) != len(self.exams):
-            raise ValueError("复习计划不能重复选择同一场考试")
-        return self
-
-
-class ReviewPlanView(AgentModel):
-    id: UUID | None = None
-    title: str
-    priority_explanation: str = Field(alias="priorityExplanation")
-    total_minutes: int = Field(alias="totalMinutes")
-    stages: list[dict[str, Any]]
-    assumptions: list[str]
-    limitations: list[str]
-
-
 class AttachmentView(AgentModel):
     id: UUID
     original_name: str = Field(alias="originalName")
@@ -195,5 +194,4 @@ class LearningOverview(AgentModel):
     attempts: list[dict[str, Any]] = Field(default_factory=list)
     activities: list[dict[str, Any]]
     mistakes: list[dict[str, Any]]
-    mastery: list[dict[str, Any]]
     practices: list[dict[str, Any]]

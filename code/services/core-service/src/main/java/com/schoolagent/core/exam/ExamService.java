@@ -23,6 +23,11 @@ class ExamService {
     return repository.list(userId);
   }
 
+  List<ExamResponse> adminList(UUID userId) {
+    requireStudent(userId);
+    return repository.list(userId);
+  }
+
   ExamResponse next(UUID userId) {
     return repository.next(userId).orElse(null);
   }
@@ -34,14 +39,36 @@ class ExamService {
   }
 
   @Transactional
+  ExamResponse adminCreate(UUID userId, ExamUpsertRequest request) {
+    requireStudent(userId);
+    return create(userId, request);
+  }
+
+  @Transactional
   ExamResponse update(UUID userId, UUID examId, ExamUpsertRequest request) {
     validateTime(request);
     return repository.update(userId, examId, request).orElseThrow(this::missing);
   }
 
   @Transactional
+  ExamResponse adminUpdate(UUID userId, UUID examId, ExamUpsertRequest request) {
+    requireStudent(userId);
+    return update(userId, examId, request);
+  }
+
+  @Transactional
   void delete(UUID userId, UUID examId) {
     if (!repository.delete(userId, examId)) throw missing();
+  }
+
+  @Transactional
+  void adminDelete(UUID userId, UUID examId) {
+    requireStudent(userId);
+    delete(userId, examId);
+  }
+
+  private void requireStudent(UUID userId) {
+    if (!repository.isStudent(userId)) throw missing();
   }
 
   private void validateTime(ExamUpsertRequest request) {

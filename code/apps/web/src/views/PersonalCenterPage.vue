@@ -22,7 +22,10 @@ const safetyForm = reactive({ avoidances: [] as string[], allergens: [] as strin
 
 const scopeLabels: Record<DataScope, { title: string; description: string }> = {
   EXAMS: { title: '考试数据', description: '用于读取本人考试安排并生成复习计划' },
-  MASTERY: { title: '掌握情况', description: '用于识别薄弱知识点和复习优先级' },
+  MASTERY: {
+    title: '练习与错题记录',
+    description: '用于保存练习作答、错因诊断、错题档案和知识点掌握度',
+  },
   DIET: { title: '饮食安全档案', description: '用于过滤过敏原和长期明确忌口' },
   CHAT_HISTORY: { title: '历史会话', description: '用于在新任务中参考长期对话摘要' },
 }

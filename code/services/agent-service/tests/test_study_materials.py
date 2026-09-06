@@ -8,7 +8,9 @@ from pptx import Presentation
 from agent_service.study_materials import (
     DocumentExtractor,
     ExtractedSection,
+    StudyMatch,
     StudyMaterialService,
+    _is_exam_material,
     _sample_indices,
     chunk_sections,
 )
@@ -76,6 +78,39 @@ def test_incremental_scan_skips_unchanged_file(tmp_path: Path) -> None:
     assert first == {"indexed": 1, "skipped": 0, "failed": 0, "inactive": 0}
     assert second == {"indexed": 0, "skipped": 1, "failed": 0, "inactive": 0}
     assert len(repository.replaced) == 1
+
+
+def test_exam_material_classifier_recognizes_papers_without_treating_textbooks_as_exams() -> None:
+    assert _is_exam_material("数据结构/习题/2023数据结构A.pdf")
+    assert _is_exam_material("数据结构/习题/20数据结构A.docx")
+    assert _is_exam_material("算法设计与分析/习题及答案/2024年试卷.pdf")
+    assert not _is_exam_material("数据结构/教材/数据结构陈越第2版.pdf")
+
+
+def test_practice_search_reserves_exam_style_and_content_evidence(tmp_path: Path) -> None:
+    class SearchRepository(FakeRepository):
+        def search(self, course, vector, limit):
+            del vector
+            assert course == "数据结构"
+            assert limit == 20
+            return [
+                StudyMatch("book-1", course, "教材.pdf", "第1页", "树的定义", 0.99),
+                StudyMatch(
+                    "exam-1", course, "2023数据结构A.pdf", "第2页", "求遍历结果", 0.91, True
+                ),
+                StudyMatch(
+                    "exam-2", course, "2022数据结构A.pdf", "第3页", "选择正确序列", 0.90, True
+                ),
+                StudyMatch("book-2", course, "课件.pdf", "第4页", "前序遍历规则", 0.89),
+            ]
+
+    repository = SearchRepository()
+    service = StudyMaterialService(settings(tmp_path), repository, FakeEmbedder(), FakeExtractor())
+
+    result = service.search_for_practice("数据结构", "二叉树遍历")
+
+    assert [item.material_id for item in result[:2]] == ["exam-1", "exam-2"]
+    assert any(not item.exam_pattern for item in result)
 
 
 def test_docx_and_pptx_extraction_preserve_document_location(tmp_path: Path) -> None:

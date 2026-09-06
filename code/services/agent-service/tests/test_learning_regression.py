@@ -11,7 +11,6 @@ from agent_service.learning_models import (
     LearningRequest,
     PracticeAttemptRequest,
     PracticeGenerateRequest,
-    ReviewPlanRequest,
 )
 from agent_service.learning_service import LearningAssistantService, _practice_payloads, _test_cases
 from test_learning_service import FakeMaterials, FakeModel, FakeRepository
@@ -115,63 +114,12 @@ def test_incomplete_proof_and_duplicate_distractors_rejected(kind, answer, optio
         )
 
 
-def plan_input():
-    return dict(
-        exams=[
-            dict(
-                id=str(uuid4()),
-                subject="数据结构",
-                examDate="2026-12-20",
-                difficulty=3,
-                mastery=50,
-                scope="树",
-            )
-        ],
-        totalMinutes=60,
-        goal="复习树",
-    )
-
-
-async def test_plan_serializes_uuid_and_preserves_total():
-    class Model:
-        model_name = "fake"
-
-        async def complete_json(self, system, user):
-            payload = json.loads(user)
-            assert isinstance(payload["exams"][0]["id"], str)
-            return {"stages": []}
-
-    class Repository(FakeRepository):
-        def save_plan(self, user_id, request, plan, model_name):
-            return plan
-
-    result = await LearningAssistantService(Model(), FakeMaterials(), Repository()).create_plan(
-        uuid4(), ReviewPlanRequest(**plan_input())
-    )
-    assert sum(stage["suggestedMinutes"] for stage in result.stages) == 60
-
-
 @pytest.mark.parametrize("field,value", [("course", "  "), ("prompt", "  ")])
 def test_whitespace_is_not_valid_question(field, value):
     payload = dict(mode="EXPLAIN", course="数据结构", prompt="解释树")
     payload[field] = value
     with pytest.raises(ValidationError):
         LearningRequest(**payload)
-
-
-@pytest.mark.parametrize("invalid_date", ["tomorrow", "2026-02-30"])
-def test_invalid_plan_date_rejected_at_boundary(invalid_date):
-    payload = plan_input()
-    payload["exams"][0]["examDate"] = invalid_date
-    with pytest.raises(ValidationError):
-        ReviewPlanRequest(**payload)
-
-
-def test_duplicate_exam_rejected():
-    payload = plan_input()
-    payload["exams"] *= 2
-    with pytest.raises(ValidationError):
-        ReviewPlanRequest(**payload)
 
 
 async def test_attachment_is_present_in_review():

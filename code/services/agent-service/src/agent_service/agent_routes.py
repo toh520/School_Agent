@@ -35,8 +35,6 @@ from agent_service.learning_models import (
     PracticeAttemptView,
     PracticeGenerateRequest,
     PracticeItemView,
-    ReviewPlanRequest,
-    ReviewPlanView,
 )
 from agent_service.learning_service import LearningAssistantService
 from agent_service.library_recommendation import recommend_books
@@ -92,38 +90,13 @@ async def generate_learning_practices(
 async def evaluate_practice_attempt(
     payload: PracticeAttemptRequest, request: Request, actor: Actor
 ) -> ApiResponse[PracticeAttemptView]:
-    """Diagnose a complete work process and update mistakes and mastery evidence."""
+    """Diagnose a complete work process and save wrong attempts to the mistake notebook."""
 
     if not actor.authorizations.get("MASTERY", False):
         raise PermissionError("DATA_SCOPE_DENIED")
     service: LearningAssistantService = request.app.state.learning_assistant
     result = await service.evaluate_attempt(actor.user_id, payload)
     return ApiResponse.ok(result, request_id_context.get())
-
-
-@router.post("/learning/review-plans")
-async def generate_review_plan(
-    payload: ReviewPlanRequest, request: Request, actor: Actor
-) -> ApiResponse[ReviewPlanView]:
-    """Generate a staged plan after deterministic allocation of the available minutes."""
-
-    if not actor.authorizations.get("EXAMS", False):
-        raise PermissionError("DATA_SCOPE_DENIED")
-    service: LearningAssistantService = request.app.state.learning_assistant
-    result = await service.create_plan(actor.user_id, payload)
-    return ApiResponse.ok(result, request_id_context.get())
-
-
-@router.get("/learning/review-plans")
-async def learning_plans(request: Request, actor: Actor) -> ApiResponse[list[dict]]:
-    service: LearningAssistantService = request.app.state.learning_assistant
-    return ApiResponse.ok(await service.plans(actor.user_id), request_id_context.get())
-
-
-@router.delete("/learning/review-plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_learning_plan(plan_id: UUID, request: Request, actor: Actor) -> None:
-    service: LearningAssistantService = request.app.state.learning_assistant
-    await service.delete_plan(actor.user_id, plan_id)
 
 
 @router.get("/learning/overview")

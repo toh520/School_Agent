@@ -1,56 +1,24 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import {
-  askLearningAssistant,
-  deleteReviewPlan,
   evaluatePractice,
   fetchLearningOverview,
-  fetchReviewPlans,
   generatePractices,
-  generateReviewPlan,
-  uploadLearningAttachment,
+  setMistakeMastery,
 } from '../api/learning'
 import type { ExamRecord } from '../types/exam'
 import type { MeData } from '../types/identity'
-import type {
-  AttachmentView,
-  LearningAnswer,
-  LearningMode,
-  LearningOverview,
-  PracticeAttempt,
-  PracticeItem,
-  ReviewPlan,
-} from '../types/learning'
+import type { LearningOverview, PracticeAttempt, PracticeItem } from '../types/learning'
+import LearningExplanationPanel from './LearningExplanationPanel.vue'
+import ReviewPlanWorkspace from './ReviewPlanWorkspace.vue'
 
-const props = defineProps<{ exams: ExamRecord[]; me: MeData }>()
+const props = defineProps<{ me: MeData; exams: ExamRecord[] }>()
 
 const courses = ['数据结构', '算法设计与分析', '计算机网络']
-const section = ref<'assistant' | 'practice' | 'records' | 'plan'>('assistant')
-const mode = ref<LearningMode>('EXPLAIN')
+const section = ref<'assistant' | 'practice' | 'records' | 'plans'>('assistant')
 const course = ref(courses[0])
-const prompt = ref('')
-const workProcess = ref('')
-const correction = ref('')
-const attachments = ref<AttachmentView[]>([])
-const uploading = ref(false)
-const answering = ref(false)
-const answer = ref<LearningAnswer | null>(null)
-const history = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])
-let discussionVersion = 0
-
-function resetDiscussion(): void {
-  discussionVersion += 1
-  history.value = []
-  answer.value = null
-  correction.value = ''
-  prompt.value = ''
-  workProcess.value = ''
-  attachments.value = []
-}
-
-watch(course, resetDiscussion)
 
 const practiceForm = reactive({
   knowledgePoint: '',
@@ -68,109 +36,18 @@ const evaluation = ref<PracticeAttempt | null>(null)
 const overview = ref<LearningOverview | null>(null)
 const loadingRecords = ref(false)
 
-const selectedExamIds = ref<string[]>([])
-const planMinutes = ref(600)
-const planGoal = ref('掌握主要知识点和常见题型')
-const planPreference = ref('')
-const planInputs = reactive<Record<string, { difficulty: number; mastery: number; scope: string }>>(
-  {},
-)
-const planning = ref(false)
-const plan = ref<ReviewPlan | null>(null)
-const savedPlans = ref<Array<Record<string, unknown>>>([])
-
-const canUseMastery = computed(() => props.me.authorizations.MASTERY.granted)
-const canUseExams = computed(() => props.me.authorizations.EXAMS.granted)
+// Keep the persisted MASTERY scope key for backward-compatible consent records;
+// the product surface now uses it only for practice and mistake-notebook storage.
+const canUseMistakes = computed(() => props.me.authorizations.MASTERY.granted)
 
 function switchSection(value: typeof section.value): void {
   section.value = value
   if (value === 'records') void loadRecords()
-  if (value === 'plan') void loadPlans()
-}
-
-async function handleFiles(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const remaining = Math.max(0, 5 - attachments.value.length)
-  const files = [...(input.files ?? [])].slice(0, remaining)
-  if ((input.files?.length ?? 0) > remaining) ElMessage.warning('每个话题最多添加5个附件')
-  if (!files.length) return
-  const uploadVersion = discussionVersion
-  uploading.value = true
-  try {
-    for (const file of files) {
-      const uploaded = await uploadLearningAttachment(file)
-      if (uploadVersion !== discussionVersion) break
-      attachments.value.push(uploaded)
-      if (uploaded.parseStatus === 'FAILED') ElMessage.warning(`${file.name} 未识别到可用文字`)
-    }
-  } catch {
-    ElMessage.error('附件上传或解析失败')
-  } finally {
-    uploading.value = false
-    input.value = ''
-  }
-}
-
-async function submitQuestion(requestMode = mode.value): Promise<void> {
-  if (answering.value) return
-  if (prompt.value.trim().length < 2) {
-    ElMessage.warning('请输入想要学习或解析的内容')
-    return
-  }
-  if (requestMode === 'DIAGNOSE' && workProcess.value.trim().length < 5) {
-    ElMessage.warning('请提供完整作答过程')
-    return
-  }
-  if (requestMode === 'CORRECT' && correction.value.trim().length < 2) {
-    ElMessage.warning('请说明你认为需要纠正的地方')
-    return
-  }
-  answering.value = true
-  const requestVersion = discussionVersion
-  const submittedProcess = workProcess.value.trim()
-  const userTurn = requestMode === 'CORRECT' ? correction.value.trim() : prompt.value.trim()
-  try {
-    const result = await askLearningAssistant({
-      mode: requestMode,
-      course: course.value,
-      prompt: prompt.value.trim(),
-      workProcess: submittedProcess,
-      previousAnswer: requestMode === 'CORRECT' ? JSON.stringify(answer.value) : '',
-      correction: requestMode === 'CORRECT' ? correction.value.trim() : '',
-      history: history.value,
-      attachmentIds: attachments.value
-        .filter((item) => item.parseStatus === 'READY')
-        .map((item) => item.id),
-    })
-    // A course switch while a request is running must not contaminate its new discussion.
-    if (discussionVersion !== requestVersion) return
-    answer.value = result
-    history.value.push(
-      { role: 'user', content: `${userTurn}\n${submittedProcess}`.slice(0, 6000) },
-      {
-        role: 'assistant',
-        content: JSON.stringify({
-          answer: result.answer,
-          steps: result.steps,
-          conclusion: result.conclusion,
-          correctedPoints: result.correctedPoints,
-        }).slice(0, 6000),
-      },
-    )
-    // Preserve the initial problem and the five most recent exchanges.
-    if (history.value.length > 12)
-      history.value = [...history.value.slice(0, 2), ...history.value.slice(-10)]
-    if (requestMode === 'CORRECT') correction.value = ''
-  } catch {
-    ElMessage.error('AI 学习助手暂时不可用，已有考试和学习记录不受影响')
-  } finally {
-    answering.value = false
-  }
 }
 
 async function createPracticeSet(): Promise<void> {
-  if (!canUseMastery.value) {
-    ElMessage.warning('请先在个人中心开启“掌握情况”授权')
+  if (!canUseMistakes.value) {
+    ElMessage.warning('请先在个人中心开启“练习与错题记录”授权')
     return
   }
   if (!practiceForm.knowledgePoint.trim()) {
@@ -215,82 +92,36 @@ async function submitAttempt(): Promise<void> {
       finalAnswer: attemptAnswer.value.trim(),
     })
   } catch {
-    ElMessage.error('作答评估失败，本次不会更新掌握度')
+    ElMessage.error('作答评估失败，本次不会写入错题本')
   } finally {
     evaluating.value = false
   }
 }
 
 async function loadRecords(): Promise<void> {
-  if (!canUseMastery.value) return
+  if (!canUseMistakes.value) return
   loadingRecords.value = true
   try {
-    overview.value = await fetchLearningOverview()
+    const result = await fetchLearningOverview()
+    overview.value = {
+      ...result,
+      mastery: result.mastery ?? [],
+      weakPoints: result.weakPoints ?? [],
+    }
   } catch {
-    ElMessage.error('学习记录加载失败')
+    ElMessage.error('错题本加载失败')
   } finally {
     loadingRecords.value = false
   }
 }
 
-function toggleExam(exam: ExamRecord): void {
-  const index = selectedExamIds.value.indexOf(exam.id)
-  if (index >= 0) selectedExamIds.value.splice(index, 1)
-  else {
-    selectedExamIds.value.push(exam.id)
-    planInputs[exam.id] ??= { difficulty: 3, mastery: 50, scope: '本学期重点内容' }
-  }
-}
-
-async function createPlan(): Promise<void> {
-  if (!canUseExams.value) {
-    ElMessage.warning('请先在个人中心开启“考试数据”授权')
-    return
-  }
-  if (!selectedExamIds.value.length) {
-    ElMessage.warning('请至少选择一场考试')
-    return
-  }
-  planning.value = true
+async function markMastered(item: Record<string, unknown>, mastered: boolean): Promise<void> {
   try {
-    plan.value = await generateReviewPlan({
-      exams: props.exams
-        .filter((exam) => selectedExamIds.value.includes(exam.id))
-        .map((exam) => ({
-          id: exam.id,
-          subject: exam.subject,
-          examDate: exam.examDate,
-          ...planInputs[exam.id],
-        })),
-      totalMinutes: planMinutes.value,
-      goal: planGoal.value,
-      preference: planPreference.value,
-    })
-    await loadPlans()
-    ElMessage.success('复习计划已生成并保存')
+    await setMistakeMastery(String(item.id), mastered)
+    await loadRecords()
+    ElMessage.success(mastered ? '已移入掌握记录' : '已恢复为待复习错题')
   } catch {
-    ElMessage.error('AI 规划暂时不可用，已有计划和考试记录不受影响')
-  } finally {
-    planning.value = false
-  }
-}
-
-async function loadPlans(): Promise<void> {
-  try {
-    savedPlans.value = await fetchReviewPlans()
-  } catch {
-    ElMessage.error('已保存计划加载失败')
-  }
-}
-
-async function removePlan(item: Record<string, unknown>): Promise<void> {
-  try {
-    await deleteReviewPlan(String(item.id))
-    await loadPlans()
-    if (plan.value?.id === item.id) plan.value = null
-    ElMessage.success('复习计划已删除')
-  } catch {
-    ElMessage.error('复习计划删除失败')
+    ElMessage.error('错题状态更新失败')
   }
 }
 
@@ -309,107 +140,14 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
         个性化练习
       </button>
       <button :class="{ active: section === 'records' }" @click="switchSection('records')">
-        错题与掌握度
+        错题本
       </button>
-      <button :class="{ active: section === 'plan' }" @click="switchSection('plan')">
-        阶段复习计划
+      <button :class="{ active: section === 'plans' }" @click="switchSection('plans')">
+        复习计划
       </button>
     </nav>
 
-    <div v-if="section === 'assistant'" class="learning-columns">
-      <section class="learning-input-card">
-        <p class="panel-label">ASK · 主动学习</p>
-        <h2>你现在卡在哪一步？</h2>
-        <div class="learning-choice-row">
-          <el-select v-model="course" aria-label="课程">
-            <el-option v-for="item in courses" :key="item" :label="item" :value="item" />
-          </el-select>
-          <el-radio-group v-model="mode">
-            <el-radio-button value="EXPLAIN">知识讲解</el-radio-button>
-            <el-radio-button value="SOLVE">题目解析</el-radio-button>
-            <el-radio-button value="DIAGNOSE">错因诊断</el-radio-button>
-          </el-radio-group>
-        </div>
-        <el-input
-          v-model="prompt"
-          type="textarea"
-          :rows="5"
-          maxlength="12000"
-          show-word-limit
-          placeholder="输入知识点或题目…"
-        />
-        <el-input
-          v-if="mode === 'DIAGNOSE'"
-          v-model="workProcess"
-          type="textarea"
-          :rows="5"
-          maxlength="12000"
-          placeholder="请完整写下你的每一步作答过程…"
-        />
-        <div class="attachment-row">
-          <label :class="{ busy: uploading }">
-            <input
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,.pdf,.doc,.docx"
-              :disabled="uploading"
-              @change="handleFiles"
-            />
-            {{ uploading ? '正在识别附件…' : '添加图片 / PDF / Word' }}
-          </label>
-          <span
-            v-for="item in attachments"
-            :key="item.id"
-            :class="item.parseStatus.toLowerCase()"
-            >{{ item.originalName }}</span
-          >
-        </div>
-        <el-button type="primary" size="large" :loading="answering" @click="submitQuestion()"
-          >开始{{ mode === 'EXPLAIN' ? '讲解' : mode === 'SOLVE' ? '解析' : '诊断' }}</el-button
-        >
-        <el-button :disabled="answering" @click="resetDiscussion">新话题</el-button>
-      </section>
-
-      <section class="learning-answer-card">
-        <div v-if="answer">
-          <header>
-            <span>{{
-              answer.validationStatus === 'MATERIAL_SUPPORTED' ? '资料支持' : '未完全验证'
-            }}</span
-            ><strong>{{ answer.course }}</strong>
-          </header>
-          <p class="answer-lead">{{ answer.answer }}</p>
-          <ol v-if="answer.steps.length" class="answer-steps">
-            <li v-for="step in answer.steps" :key="step">{{ step }}</li>
-          </ol>
-          <div v-if="answer.diagnosis.length" class="answer-diagnosis">
-            <strong>错因诊断</strong>
-            <p v-for="item in answer.diagnosis" :key="item">{{ item }}</p>
-          </div>
-          <div v-if="answer.correctedPoints.length" class="answer-corrections">
-            <strong>本次修正</strong>
-            <p v-for="item in answer.correctedPoints" :key="item">{{ item }}</p>
-          </div>
-          <blockquote>{{ answer.conclusion }}</blockquote>
-          <p v-for="limitation in answer.limitations" :key="limitation">提示：{{ limitation }}</p>
-          <footer>
-            <span>验证：{{ answer.verification }}</span>
-            <small v-if="answer.sources.length"
-              >参考：{{
-                answer.sources.map((item) => `${item.fileName}（${item.locator}）`).join('、')
-              }}</small
-            >
-          </footer>
-          <div class="correction-box">
-            <el-input v-model="correction" placeholder="这里不对，或者请换一种讲法…" />
-            <el-button :loading="answering" @click="submitQuestion('CORRECT')"
-              >检查并重新讲解</el-button
-            >
-          </div>
-        </div>
-        <el-empty v-else description="回答会在这里按步骤展开" />
-      </section>
-    </div>
+    <LearningExplanationPanel v-if="section === 'assistant'" />
 
     <section v-else-if="section === 'practice'" class="learning-section-card">
       <header>
@@ -489,136 +227,128 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
       v-loading="loadingRecords"
       class="learning-section-card"
     >
-      <div v-if="!canUseMastery" class="permission-note">
-        开启“掌握情况”授权后，才会读取和分析你的练习记录。
+      <div v-if="!canUseMistakes" class="permission-note">
+        开启“练习与错题记录”授权后，才会读取你的错题本。
       </div>
       <template v-else-if="overview">
-        <header>
+        <header class="notebook-heading">
           <div>
-            <p class="panel-label">LEARNING RECORD</p>
-            <h2>薄弱点不是标签，而是下一次复习的起点</h2>
+            <p class="panel-label">MISTAKE NOTEBOOK · 错题复盘档案</p>
+            <h2>把错误完整留下，下一次才知道从哪里改起</h2>
+            <p>共 {{ overview.mistakes.length }} 道错题，保存原题、作答、错因与可核验解析。</p>
           </div>
         </header>
-        <div class="mastery-grid">
+        <section v-if="overview.weakPoints.length" class="weak-point-board">
+          <header>
+            <strong>高频薄弱点</strong>
+            <span>按未掌握错题次数排序</span>
+          </header>
+          <div>
+            <article
+              v-for="point in overview.weakPoints"
+              :key="`${point.course}-${point.knowledge_point}`"
+            >
+              <strong>{{ point.knowledge_point }}</strong>
+              <span>{{ point.course }} · {{ point.mistake_count }} 次错误</span>
+              <small
+                >掌握度 {{ Math.round(Number(point.mastery_score)) }}% ·
+                {{ (point.causes as string[]).join('、') }}</small
+              >
+            </article>
+          </div>
+        </section>
+        <el-empty v-if="!overview.mistakes.length" description="还没有错题记录" />
+        <div v-else class="mistake-notebook">
           <article
-            v-for="item in overview.mastery"
-            :key="String(value(item, 'knowledgePoint', 'knowledge_point'))"
+            v-for="(item, index) in overview.mistakes"
+            :key="String(item.id)"
+            class="mistake-sheet"
           >
-            <span>{{ value(item, 'course', 'course') }}</span
-            ><strong>{{ value(item, 'knowledgePoint', 'knowledge_point') }}</strong>
-            <el-progress
-              :percentage="Number(value(item, 'masteryScore', 'mastery_score') ?? 0)"
-              :stroke-width="7"
-            />
-          </article>
-        </div>
-        <h3>错题本</h3>
-        <div class="mistake-list">
-          <article v-for="item in overview.mistakes" :key="String(item.id)">
-            <strong>{{ value(item, 'knowledgePoint', 'knowledge_point') }}</strong
-            ><span>{{ value(item, 'causeType', 'cause_type') }}</span>
-            <p>{{ value(item, 'reviewSuggestion', 'review_suggestion') }}</p>
-          </article>
-        </div>
-        <h3>历次作答（最近100条）</h3>
-        <div class="activity-list">
-          <details v-for="item in overview.attempts ?? []" :key="String(item.id)">
-            <summary>
-              {{ item.course }} · {{ item.score }}分 · {{ item.correct ? '正确' : '需要修正' }} ·
-              {{ value(item, 'createdAt', 'created_at') }}
-            </summary>
-            <p><strong>题目：</strong>{{ item.prompt }}</p>
-            <p style="white-space: pre-wrap">
-              <strong>我的过程：</strong>{{ value(item, 'workProcess', 'work_process') }}
-            </p>
-            <p><strong>我的答案：</strong>{{ value(item, 'finalAnswer', 'final_answer') }}</p>
-            <p style="white-space: pre-wrap">
-              <strong>标准答案：</strong>{{ value(item, 'standardAnswer', 'standard_answer') }}
-            </p>
-            <p style="white-space: pre-wrap">
-              <strong>步骤解析：</strong>{{ value(item, 'stepAnalysis', 'step_analysis') }}
-            </p>
-            <p v-for="entry in (item.diagnosis as { items?: string[] })?.items ?? []" :key="entry">
-              {{ entry }}
-            </p>
-            <p>{{ (item.diagnosis as { reviewSuggestion?: string })?.reviewSuggestion }}</p>
-            <p>来源：{{ value(item, 'sourceLabel', 'source_label') }}</p>
-          </details>
-        </div>
-        <h3>学习活动</h3>
-        <div class="activity-list">
-          <article v-for="item in overview.activities" :key="String(item.id)">
-            <span>{{ value(item, 'activityType', 'activity_type') }}</span>
-            <strong>{{ value(item, 'course', 'course') }}</strong>
-            <p>{{ value(item, 'summary', 'summary') }}</p>
+            <header>
+              <span class="mistake-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div>
+                <p>
+                  {{ value(item, 'course', 'course') }} ·
+                  {{ value(item, 'knowledgePoint', 'knowledge_point') }}
+                </p>
+                <h3>{{ value(item, 'prompt', 'prompt') }}</h3>
+              </div>
+              <span class="mistake-score">{{ value(item, 'score', 'score') }} 分</span>
+            </header>
+            <div class="mistake-meta">
+              <span>{{ value(item, 'questionType', 'question_type') }}</span>
+              <span>错因：{{ value(item, 'causeType', 'cause_type') }}</span>
+              <span>{{ value(item, 'createdAt', 'created_at') }}</span>
+            </div>
+            <div class="mistake-review-grid">
+              <section class="mistake-user-answer">
+                <h4>我的作答过程</h4>
+                <p>{{ value(item, 'workProcess', 'work_process') || '未填写' }}</p>
+                <h4>我的最终答案</h4>
+                <p>{{ value(item, 'finalAnswer', 'final_answer') || '未填写' }}</p>
+              </section>
+              <section class="mistake-diagnosis">
+                <h4>错误原因</h4>
+                <ul>
+                  <li
+                    v-for="entry in (item.diagnosis as { items?: string[] })?.items ?? []"
+                    :key="entry"
+                  >
+                    {{ entry }}
+                  </li>
+                </ul>
+                <p>{{ value(item, 'correctedConclusion', 'corrected_conclusion') }}</p>
+              </section>
+            </div>
+            <section class="mistake-correction">
+              <h4>正确答案</h4>
+              <p>{{ value(item, 'standardAnswer', 'standard_answer') }}</p>
+              <h4>解题分析</h4>
+              <p>{{ value(item, 'stepAnalysis', 'step_analysis') }}</p>
+              <div
+                v-if="
+                  (value(item, 'testCases', 'test_cases') as Array<Record<string, unknown>>)?.length
+                "
+                class="exam-test-cases"
+              >
+                <h4>校验样例</h4>
+                <p
+                  v-for="(testCase, caseIndex) in value(item, 'testCases', 'test_cases') as Array<
+                    Record<string, unknown>
+                  >"
+                  :key="caseIndex"
+                >
+                  {{ caseIndex + 1 }}. 输入：{{ testCase.input }}；预期输出：{{
+                    testCase.expectedOutput
+                  }}
+                </p>
+              </div>
+            </section>
+            <footer>
+              <p>
+                <strong>复习建议：</strong
+                >{{ value(item, 'reviewSuggestion', 'review_suggestion') }}
+              </p>
+              <span
+                >来源：{{ value(item, 'sourceLabel', 'source_label') }} ·
+                {{ value(item, 'validationStatus', 'validation_status') }}</span
+              >
+              <el-button
+                size="small"
+                :type="value(item, 'mastered', 'mastered') ? 'default' : 'success'"
+                plain
+                @click="markMastered(item, !Boolean(value(item, 'mastered', 'mastered')))"
+              >
+                {{ value(item, 'mastered', 'mastered') ? '恢复待复习' : '标记已掌握' }}
+              </el-button>
+            </footer>
           </article>
         </div>
       </template>
-      <el-empty v-else description="暂无学习记录" />
+      <el-empty v-else description="暂无错题记录" />
     </section>
 
-    <section v-else class="learning-section-card plan-builder">
-      <header>
-        <div>
-          <p class="panel-label">STAGED PLAN</p>
-          <h2>把有限时间分配给最需要的考试</h2>
-        </div>
-      </header>
-      <div v-if="!canUseExams" class="permission-note">
-        开启“考试数据”授权后，AI 才能读取你选中的考试。
-      </div>
-      <div class="plan-exam-list">
-        <article
-          v-for="exam in exams"
-          :key="exam.id"
-          :class="{ selected: selectedExamIds.includes(exam.id) }"
-        >
-          <button type="button" @click="toggleExam(exam)">
-            <strong>{{ exam.subject }}</strong
-            ><span>{{ exam.examDate }} · {{ exam.location }}</span>
-          </button>
-          <div v-if="selectedExamIds.includes(exam.id)" class="plan-exam-fields">
-            <label>难度 <el-rate v-model="planInputs[exam.id].difficulty" /></label>
-            <label>当前掌握度 <el-slider v-model="planInputs[exam.id].mastery" /></label>
-            <el-input v-model="planInputs[exam.id].scope" placeholder="复习范围" />
-          </div>
-        </article>
-      </div>
-      <div class="plan-global-fields">
-        <el-input-number v-model="planMinutes" :min="30" :max="100000" :step="30" /><span
-          >分钟可用</span
-        >
-        <el-input v-model="planGoal" placeholder="复习目标" />
-        <el-input v-model="planPreference" placeholder="复习偏好（可选）" />
-        <el-button type="primary" :loading="planning" @click="createPlan">生成并保存计划</el-button>
-      </div>
-      <article v-if="plan" class="generated-plan">
-        <header>
-          <h3>{{ plan.title }}</h3>
-          <span>共 {{ plan.totalMinutes }} 分钟</span>
-        </header>
-        <p>{{ plan.priorityExplanation }}</p>
-        <ol>
-          <li v-for="stage in plan.stages" :key="`${stage.examId}-${stage.name}`">
-            <strong>{{ stage.name }} · {{ stage.subject }}</strong
-            ><span>{{ stage.content }}</span
-            ><small>{{ stage.objective }} · {{ stage.suggestedMinutes }} 分钟</small>
-          </li>
-        </ol>
-        <footer>{{ plan.limitations.join('；') }}</footer>
-      </article>
-      <div v-if="savedPlans.length" class="saved-plan-list">
-        <h3>已保存计划</h3>
-        <article v-for="item in savedPlans" :key="String(item.id)">
-          <div>
-            <strong>{{ value(item, 'title', 'title') }}</strong>
-            <span>{{ value(item, 'totalMinutes', 'total_minutes') }} 分钟</span>
-          </div>
-          <p>{{ value(item, 'priorityExplanation', 'priority_explanation') }}</p>
-          <el-button text type="danger" @click="removePlan(item)">删除</el-button>
-        </article>
-      </div>
-    </section>
+    <ReviewPlanWorkspace v-else :exams="exams" :me="me" />
   </section>
 </template>
 
@@ -652,13 +382,6 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
   box-shadow: 0 5px 18px rgb(42 47 48 / 8%);
   font-weight: 700;
 }
-.learning-columns {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.82fr) minmax(380px, 1.18fr);
-  gap: 18px;
-}
-.learning-input-card,
-.learning-answer-card,
 .learning-section-card {
   padding: clamp(22px, 4vw, 36px);
   border: 1px solid #d9d5c8;
@@ -666,57 +389,12 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
   background: rgb(255 255 255 / 94%);
   box-shadow: 0 14px 36px rgb(50 45 30 / 6%);
 }
-.learning-input-card h2,
 .learning-section-card h2 {
   margin: 8px 0 24px;
   font-family: Georgia, 'Microsoft YaHei', serif;
   font-size: 27px;
   font-weight: 500;
 }
-.learning-input-card {
-  display: grid;
-  align-content: start;
-  gap: 16px;
-}
-.learning-choice-row {
-  display: grid;
-  gap: 10px;
-}
-.attachment-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.attachment-row label {
-  padding: 8px 12px;
-  border: 1px dashed #c9912f;
-  border-radius: 6px;
-  color: #77571c;
-  cursor: pointer;
-}
-.attachment-row input {
-  display: none;
-}
-.attachment-row span {
-  max-width: 170px;
-  padding: 6px 9px;
-  overflow: hidden;
-  border-radius: 5px;
-  background: #eef4ef;
-  color: #4c6753;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.attachment-row span.failed {
-  color: #9d4d44;
-  background: #fff0ed;
-}
-.learning-answer-card {
-  min-height: 520px;
-}
-.learning-answer-card header,
 .practice-list header,
 .generated-plan header {
   display: flex;
@@ -724,54 +402,6 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
   gap: 16px;
   color: #71808a;
   font-size: 11px;
-}
-.learning-answer-card header span {
-  color: #6b571f;
-}
-.answer-lead {
-  margin: 28px 0;
-  color: #28343d;
-  font-size: 17px;
-  line-height: 1.85;
-}
-.answer-steps {
-  display: grid;
-  gap: 12px;
-  padding-left: 26px;
-  color: #465a65;
-  line-height: 1.75;
-}
-.learning-answer-card blockquote {
-  margin: 28px 0;
-  padding: 18px 21px;
-  border-left: 4px solid #c9912f;
-  background: #fbf7ec;
-  color: #28343d;
-  font-weight: 700;
-}
-.learning-answer-card footer {
-  display: grid;
-  gap: 6px;
-  color: #71808a;
-  font-size: 11px;
-}
-.answer-diagnosis,
-.answer-corrections {
-  margin-top: 20px;
-  padding: 16px;
-  border-radius: 8px;
-  background: #f4f6f5;
-  color: #465a65;
-}
-.answer-diagnosis p,
-.answer-corrections p {
-  margin: 7px 0 0;
-}
-.correction-box {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  margin-top: 25px;
 }
 .practice-builder {
   display: grid;
@@ -784,9 +414,7 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
   gap: 14px;
   margin-top: 24px;
 }
-.practice-list article,
-.mistake-list article,
-.mastery-grid article {
+.practice-list article {
   padding: 18px;
   border: 1px solid #e0ddd4;
   border-radius: 9px;
@@ -824,158 +452,161 @@ function value(record: Record<string, unknown>, camel: string, snake: string): u
   color: #715723;
   background: #fffaf0;
 }
-.mastery-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 20px 0 30px;
+.notebook-heading {
+  margin-bottom: 24px;
 }
-.mastery-grid article {
-  display: grid;
-  gap: 10px;
-}
-.mastery-grid span {
-  color: #71808a;
-  font-size: 11px;
-}
-.mistake-list {
-  display: grid;
-  gap: 10px;
-}
-.activity-list,
-.saved-plan-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-}
-.activity-list article,
-.saved-plan-list article {
-  padding: 16px 18px;
-  border-top: 1px solid #d9d5c8;
-}
-.activity-list span,
-.saved-plan-list span {
-  margin-right: 12px;
-  color: #8b6b2d;
-  font-size: 11px;
-}
-.activity-list p,
-.saved-plan-list p {
-  margin: 7px 0 0;
+.notebook-heading p:last-child {
   color: #71808a;
 }
-.saved-plan-list article {
-  display: grid;
-  grid-template-columns: 1fr auto;
-}
-.saved-plan-list article p {
-  grid-column: 1;
-}
-.saved-plan-list article .el-button {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-}
-.mistake-list article {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px 20px;
-}
-.mistake-list p {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: #71808a;
-}
-.plan-exam-list {
-  display: grid;
-  gap: 10px;
-}
-.plan-exam-list article {
+.weak-point-board {
+  margin-bottom: 24px;
+  padding: 18px;
   border: 1px solid #d9d5c8;
-  border-radius: 9px;
+  border-radius: 8px;
+  background: #f7f5ef;
 }
-.plan-exam-list article.selected {
-  border-color: #c9912f;
-}
-.plan-exam-list button {
+.weak-point-board > header {
   display: flex;
   justify-content: space-between;
-  width: 100%;
-  padding: 17px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
+  color: #52646e;
 }
-.plan-exam-list button span {
-  color: #71808a;
+.weak-point-board > header span {
+  color: #829096;
+  font-size: 12px;
 }
-.plan-exam-fields {
+.weak-point-board > div {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 2fr;
-  gap: 18px;
-  padding: 0 17px 17px;
-}
-.plan-exam-fields label {
-  color: #71808a;
-  font-size: 11px;
-}
-.plan-global-fields {
-  display: grid;
-  grid-template-columns: auto auto 1fr 1fr auto;
-  align-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
-.generated-plan {
-  margin-top: 26px;
-  padding: 25px;
-  border: 1px solid #c9912f;
-  border-radius: 10px;
-  background: #fffdf7;
-}
-.generated-plan h3 {
-  margin: 0;
-  font-family: Georgia, 'Microsoft YaHei', serif;
-  font-size: 24px;
-}
-.generated-plan ol {
+.weak-point-board article {
   display: grid;
-  gap: 12px;
-  padding-left: 22px;
+  gap: 5px;
+  padding: 13px;
+  border-left: 3px solid #bd5b4d;
+  background: #fff;
 }
-.generated-plan li {
-  padding: 12px;
-}
-.generated-plan li span,
-.generated-plan li small {
-  display: block;
-  margin-top: 6px;
+.weak-point-board span,
+.weak-point-board small {
   color: #71808a;
 }
-.generated-plan footer {
-  padding-top: 14px;
-  border-top: 1px dashed #d9d5c8;
+.mistake-notebook {
+  display: grid;
+  gap: 22px;
+}
+.mistake-sheet {
+  overflow: hidden;
+  border: 1px solid #d8d2c5;
+  border-left: 5px solid #a8473d;
+  border-radius: 8px;
+  background: #fffef9;
+  box-shadow: 0 10px 28px rgba(42, 49, 53, 0.07);
+}
+.mistake-sheet > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding: 22px 24px 16px;
+}
+.mistake-number {
+  color: #a8473d;
+  font:
+    700 24px Georgia,
+    serif;
+}
+.mistake-sheet h3 {
+  margin: 4px 0 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.mistake-sheet header p {
+  margin: 0;
   color: #806832;
   font-size: 12px;
 }
+.mistake-score {
+  padding: 5px 9px;
+  color: #9c3f37;
+  background: #fae9e5;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.mistake-meta {
+  display: flex;
+  gap: 18px;
+  padding: 10px 24px;
+  border-block: 1px dashed #ddd5c6;
+  color: #71808a;
+  font-size: 12px;
+}
+.mistake-review-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.mistake-review-grid section,
+.mistake-correction {
+  padding: 20px 24px;
+}
+.mistake-user-answer {
+  background: #faf7f0;
+}
+.mistake-diagnosis {
+  border-left: 1px solid #e3ddd1;
+  background: #fff6f3;
+}
+.mistake-sheet h4 {
+  margin: 0 0 8px;
+  color: #33434c;
+}
+.mistake-sheet p {
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.mistake-correction {
+  border-top: 1px solid #e3ddd1;
+}
+.mistake-sheet > footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 24px;
+  color: #6f6249;
+  background: #f5f1e8;
+}
+.mistake-sheet > footer p {
+  margin: 0;
+}
+.mistake-sheet > footer span {
+  font-size: 11px;
+  text-align: right;
+}
 @media (max-width: 960px) {
-  .learning-columns,
   .practice-builder,
-  .plan-global-fields {
+  .mistake-review-grid {
     grid-template-columns: 1fr;
   }
-  .practice-list,
-  .mastery-grid {
+  .practice-list {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 600px) {
   .practice-list,
-  .mastery-grid,
-  .plan-exam-fields {
+  .mistake-review-grid {
     grid-template-columns: 1fr;
   }
-  .correction-box {
-    grid-template-columns: 1fr;
+  .mistake-sheet > header {
+    grid-template-columns: auto 1fr;
+  }
+  .mistake-score {
+    grid-column: 2;
+  }
+  .mistake-sheet > footer {
+    flex-direction: column;
+  }
+  .mistake-sheet > footer span {
+    text-align: left;
   }
 }
 </style>

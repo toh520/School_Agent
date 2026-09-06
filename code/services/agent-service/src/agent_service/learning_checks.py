@@ -2,7 +2,7 @@
 
 import re
 
-from agent_service.learning_models import LearningRequest
+from agent_service.learning_models import LearningMode, LearningRequest
 
 
 def question_only(request: LearningRequest) -> bool:
@@ -39,16 +39,34 @@ def visible_draft(request: LearningRequest, generated: dict) -> dict:
         reference = checks.get("binarySearch")
         if reference:
             # Rule evidence is application-owned, not a model's claim about its own checks.
-            issues = check_generated_counts(generated, checks)
             generated = {
                 **generated,
-                "verification": (
-                    f"程序规则：数组长度{reference['size']}，{reference['definition']}；"
-                    f"最坏比较次数为{reference['worstComparisons']}。"
-                    + ("候选次数未通过规则校验。" if issues else "候选次数与规则一致。")
-                    + "此项仅核对次数，不代表教材引用或整份解答已通过审查。"
-                ),
+                "binarySearchWorstComparisons": reference["worstComparisons"],
             }
+            issues = check_generated_counts(generated, checks)
+            if request.mode == LearningMode.DIAGNOSE:
+                submitted = re.findall(r"\d+", request.final_answer)
+                if submitted and int(submitted[-1]) != reference["worstComparisons"]:
+                    diagnosis = generated.get("diagnosis")
+                    diagnosis = list(diagnosis) if isinstance(diagnosis, list) else []
+                    diagnosis.append(
+                        f"最终作答为{submitted[-1]}次，与程序规则核对的"
+                        f"{reference['worstComparisons']}次不一致；不能把减半次数直接当作实际比较次数。"
+                    )
+                    corrected = generated.get("correctedPoints")
+                    corrected = list(corrected) if isinstance(corrected, list) else []
+                    corrected.append(
+                        f"按闭区间规则计入单元素候选区间的最后一次比较，"
+                        f"正确结果为{reference['worstComparisons']}次。"
+                    )
+                    generated["diagnosis"] = diagnosis
+                    generated["correctedPoints"] = corrected
+            generated["verification"] = (
+                f"程序规则：数组长度{reference['size']}，{reference['definition']}；"
+                f"最坏比较次数为{reference['worstComparisons']}。"
+                + ("最终文字结论未通过规则校验。" if issues else "最终文字结论与规则一致。")
+                + "此项仅核对次数，不代表教材引用或整份解答已通过审查。"
+            )
         return generated
     question = generated.get("selfTestQuestion")
     return {
@@ -60,6 +78,14 @@ def visible_draft(request: LearningRequest, generated: dict) -> dict:
         "limitations": ["AI生成自测题，尚未作答。"],
         "verification": "本轮仅提供题目，未进行作答评估。",
         "selfTestQuestion": question,
+        "selfTestAnswer": "",
+        "prerequisiteKnowledge": [],
+        "keyConcepts": [],
+        "keyClaims": [],
+        "workedExample": "",
+        "commonMistakes": [],
+        "memoryTip": "",
+        "evidenceConflicts": [],
     }
 
 
@@ -178,11 +204,17 @@ def check_generated_counts(generated: dict, checks: dict) -> list[str]:
     count = generated.get("binarySearchWorstComparisons")
     if type(count) is not int or count != expected:
         return [f"规则校验：标准闭区间二分查找最坏比较次数应为{expected}，请声明计数口径。"]
-    # Inspect final claims, not quotations of previous mistakes or numbered worked steps.
-    final_text = str(generated.get("answer", "")) + str(generated.get("conclusion", ""))
-    counts = re.findall(
-        r"最坏(?:情况)?(?:下)?(?:需要|为|是|需|最多)?\s*(\d+)\s*次(?:比较|三路比较)", final_text
-    )
+    # The conclusion is the authoritative final claim.  Looking through the whole
+    # answer would mistake a quoted learner error (for example "I wrote 4") for
+    # the assistant's conclusion during diagnosis.
+    final_text = str(generated.get("conclusion") or generated.get("answer") or "")
+    counts = []
+    for pattern in (
+        r"最坏(?:情况)?(?:下)?(?:需要|需|最多)?\s*(?:三路)?比较(?:次数)?(?:为|是|需要|需|最多)?\s*(\d+)\s*次",
+        r"最坏(?:情况)?(?:下)?(?:的)?(?:比较|三路比较)?次数(?:为|是|需要|需|最多)?\s*(\d+)\s*次?",
+        r"最坏(?:情况)?(?:下)?(?:需要|为|是|需|最多)?\s*(\d+)\s*次(?:比较|三路比较)",
+    ):
+        counts.extend(re.findall(pattern, final_text))
     if any(int(value) != expected for value in counts):
         return [f"规则校验：最终文字结论与已计算的{expected}次比较矛盾。"]
     explanation = " ".join(

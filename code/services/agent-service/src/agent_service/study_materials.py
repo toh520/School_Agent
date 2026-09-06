@@ -1,6 +1,7 @@
 """Incremental extraction and retrieval for local course materials."""
 
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,20 @@ from agent_service.knowledge_rag import LocalBgeEmbedder, TextEmbedder, _vector_
 SUPPORTED_SUFFIXES = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg"}
 
 
+def _is_exam_material(relative_path: str) -> bool:
+    """Classify files that can teach the generator a course's exam-question style."""
+
+    normalized = relative_path.replace("\\", "/")
+    return bool(
+        re.search("试卷|真题|期末|期中|样卷|例卷|模拟(?:试题|卷)|考题", normalized)
+        or re.search(
+            r"(?:^|/)(?:(?:19|20)\d{2}|\d{2})[^/]*(?:A|B|卷|答案)(?:\.[^/]*)?$",
+            normalized,
+            re.I,
+        )
+    )
+
+
 @dataclass(frozen=True)
 class ExtractedSection:
     """Text extracted from one page, slide, or document section."""
@@ -40,6 +55,7 @@ class StudyMatch:
     locator: str
     content: str
     similarity: float
+    exam_pattern: bool = False
 
 
 class MaterialRepository(Protocol):
@@ -240,6 +256,7 @@ class PostgresMaterialRepository:
                     locator=str(row["locator"]),
                     content=str(row["content"]),
                     similarity=float(row["similarity"]),
+                    exam_pattern=_is_exam_material(str(row["relative_path"])),
                 )
                 for row in cursor.fetchall()
             ]
@@ -471,6 +488,29 @@ class StudyMaterialService:
         self.sync()
         matches = self._repository.search(course, self._embedder.encode([query])[0], self._top_k)
         return [item for item in matches if item.similarity >= self._threshold]
+
+    def search_for_practice(self, course: str, knowledge_point: str) -> list[StudyMatch]:
+        """Reserve evidence slots for past-exam style without requiring question-level tracing."""
+
+        if course not in self._courses:
+            return []
+        self.sync()
+        query = f"{knowledge_point} 期末试卷 考试题型 样卷 习题 例题"
+        candidate_limit = max(20, self._top_k * 4)
+        candidates = self._repository.search(
+            course, self._embedder.encode([query])[0], candidate_limit
+        )
+        candidates = [item for item in candidates if item.similarity >= self._threshold]
+        exam_matches = [item for item in candidates if item.exam_pattern]
+        # Keep both exam-style evidence and content evidence.  Exam material guides
+        # wording/difficulty; the remaining slots help the reviewer verify answers.
+        exam_quota = min(len(exam_matches), max(1, (self._top_k + 1) // 2))
+        selected = exam_matches[:exam_quota]
+        selected_keys = {(item.material_id, item.locator) for item in selected}
+        selected.extend(
+            item for item in candidates if (item.material_id, item.locator) not in selected_keys
+        )
+        return selected[: self._top_k]
 
     def extract_file(self, path: Path) -> list[ExtractedSection]:
         """Reuse the hardened material parser for a user-owned temporary attachment."""

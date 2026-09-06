@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
-import { createExam, deleteExam, fetchExams, updateExam } from '../api/exam'
+import { fetchExams } from '../api/exam'
 import ExamLearningWorkspace from '../components/ExamLearningWorkspace.vue'
-import type { ExamInput, ExamRecord } from '../types/exam'
+import type { ExamRecord } from '../types/exam'
 import type { MeData, UserSummary } from '../types/identity'
 
 defineProps<{ user: UserSummary; me: MeData }>()
@@ -12,25 +12,39 @@ defineProps<{ user: UserSummary; me: MeData }>()
 const exams = ref<ExamRecord[]>([])
 const activeView = ref<'schedule' | 'learning'>('schedule')
 const loading = ref(false)
-const saving = ref(false)
-const dialogOpen = ref(false)
-const editingId = ref('')
 const now = ref(new Date())
-const form = reactive<ExamInput>({
-  subject: '',
-  examDate: '',
-  startTime: '09:00:00',
-  endTime: '11:00:00',
-  location: '',
-})
+const refreshedAt = ref<Date | null>(null)
 
 const upcomingExams = computed(() =>
-  exams.value.filter((exam) => examEnd(exam).getTime() >= now.value.getTime()),
+  exams.value
+    .filter((exam) => examEnd(exam).getTime() >= now.value.getTime())
+    .sort((left, right) => examStart(left).getTime() - examStart(right).getTime()),
 )
 const historyExams = computed(() =>
   exams.value.filter((exam) => examEnd(exam).getTime() < now.value.getTime()).reverse(),
 )
 const nextExam = computed(() => upcomingExams.value[0] ?? null)
+const nextExamInProgress = computed(
+  () =>
+    nextExam.value !== null &&
+    examStart(nextExam.value).getTime() <= now.value.getTime() &&
+    examEnd(nextExam.value).getTime() >= now.value.getTime(),
+)
+const examGroups = computed(() => {
+  const groups = [
+    { key: 'urgent', label: '7 天内', note: '优先复习', exams: [] as ExamRecord[] },
+    { key: 'month', label: '30 天内', note: '纳入计划', exams: [] as ExamRecord[] },
+    { key: 'later', label: '稍后', note: '提前了解', exams: [] as ExamRecord[] },
+  ]
+  upcomingExams.value.forEach((exam) => {
+    const days = Math.max(
+      0,
+      Math.ceil((examStart(exam).getTime() - now.value.getTime()) / 86_400_000),
+    )
+    groups[days <= 7 ? 0 : days <= 30 ? 1 : 2].exams.push(exam)
+  })
+  return groups.filter((group) => group.exams.length)
+})
 
 function examStart(exam: ExamRecord): Date {
   return new Date(`${exam.examDate}T${exam.startTime}`)
@@ -63,85 +77,14 @@ function displayTime(value: string): string {
   return value.slice(0, 5)
 }
 
-function resetForm(): void {
-  editingId.value = ''
-  Object.assign(form, {
-    subject: '',
-    examDate: '',
-    startTime: '09:00:00',
-    endTime: '11:00:00',
-    location: '',
-  })
-}
-
-function openCreate(): void {
-  resetForm()
-  dialogOpen.value = true
-}
-
-function openEdit(exam: ExamRecord): void {
-  editingId.value = exam.id
-  Object.assign(form, {
-    subject: exam.subject,
-    examDate: exam.examDate,
-    startTime: exam.startTime,
-    endTime: exam.endTime,
-    location: exam.location,
-  })
-  dialogOpen.value = true
-}
-
-function validForm(): boolean {
-  if (!form.subject.trim() || !form.examDate || !form.location.trim()) {
-    ElMessage.warning('请填写科目、日期和地点')
-    return false
-  }
-  if (!form.startTime || !form.endTime || form.endTime <= form.startTime) {
-    ElMessage.warning('结束时间必须晚于开始时间')
-    return false
-  }
-  return true
+function wasUpdated(exam: ExamRecord): boolean {
+  return new Date(exam.updatedAt).getTime() - new Date(exam.createdAt).getTime() > 1000
 }
 
 async function reload(): Promise<void> {
   exams.value = await fetchExams()
   now.value = new Date()
-}
-
-async function save(): Promise<void> {
-  if (!validForm()) return
-  saving.value = true
-  try {
-    const input = { ...form, subject: form.subject.trim(), location: form.location.trim() }
-    if (editingId.value) await updateExam(editingId.value, input)
-    else await createExam(input)
-    await reload()
-    dialogOpen.value = false
-    ElMessage.success(editingId.value ? '考试安排已更新' : '考试安排已添加')
-  } catch {
-    ElMessage.error('保存失败，请检查时间后重试')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function remove(exam: ExamRecord): Promise<void> {
-  try {
-    await ElMessageBox.confirm(`删除“${exam.subject}”的考试安排？`, '删除考试', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-  } catch {
-    return
-  }
-  try {
-    await deleteExam(exam.id)
-    await reload()
-    ElMessage.success('考试安排已删除')
-  } catch {
-    ElMessage.error('删除失败，请刷新后重试')
-  }
+  refreshedAt.value = new Date()
 }
 
 onMounted(async () => {
@@ -160,13 +103,10 @@ onMounted(async () => {
   <section class="module-page module-exam exam-assistant" aria-labelledby="exam-title">
     <header class="module-hero exam-hero">
       <div>
-        <p class="page-kicker">Exam assistant · 考试与规划</p>
-        <h1 id="exam-title">先把时间放上桌面，再安排如何走到终点。</h1>
-        <p>考试记录不依赖 AI；只有你主动发起时，助手才会读取授权数据。</p>
+        <p class="page-kicker">Exam assistant · 考试助手</p>
+        <h1 id="exam-title">考试信息一目了然，把注意力留给学习本身。</h1>
+        <p>考试安排由管理员统一维护；AI 学习助手仅在你主动发起时工作。</p>
       </div>
-      <button class="exam-add-seal" type="button" @click="openCreate">
-        <span>+</span><strong>添加考试</strong>
-      </button>
     </header>
 
     <nav class="module-tabs exam-main-tabs" aria-label="考试助手功能">
@@ -184,7 +124,7 @@ onMounted(async () => {
           <div class="exam-focus-date">
             <small>NEXT EXAM</small>
             <strong>{{ countdown(nextExam) }}</strong>
-            <span>后开始</span>
+            <span v-if="!nextExamInProgress">后开始</span>
           </div>
           <div class="exam-focus-copy">
             <p>{{ displayDate(nextExam.examDate) }}</p>
@@ -205,16 +145,16 @@ onMounted(async () => {
         <article v-else class="next-exam-focus exam-empty-focus">
           <div class="exam-focus-date"><small>NEXT EXAM</small><strong>—</strong></div>
           <div class="exam-focus-copy">
-            <p>考试时间轴还是空的</p>
-            <h2>记下第一场考试</h2>
-            <span>添加后会自动排序，并在这里显示最近一场。</span>
+            <p>尚未发布考试安排</p>
+            <h2>暂无考试信息</h2>
+            <span>管理员发布后会自动排序，并在这里显示最近一场。</span>
           </div>
         </article>
 
-        <aside class="exam-plan-entry">
+        <aside class="exam-learning-entry">
           <p class="panel-label">AI 学习助手</p>
           <h2>从一道不会的题开始</h2>
-          <p>讲解、解析、错因诊断、个性化练习和阶段计划将在同一段对话中衔接。</p>
+          <p>讲解、解析、错因诊断、个性化练习和错题复盘在同一个工作台中衔接。</p>
           <el-button type="primary" @click="activeView = 'learning'">进入 AI 学习工作台</el-button>
         </aside>
       </section>
@@ -225,30 +165,33 @@ onMounted(async () => {
             <p class="panel-label">考试时间轴</p>
             <h2>接下来的安排</h2>
           </div>
-          <span>{{ upcomingExams.length }} 场待考</span>
+          <span>
+            {{ upcomingExams.length }} 场待考
+            <small v-if="refreshedAt">· {{ displayTime(refreshedAt.toTimeString()) }} 已同步</small>
+          </span>
         </header>
 
-        <el-empty v-if="!upcomingExams.length && !loading" description="暂无待考记录">
-          <el-button type="primary" @click="openCreate">添加考试</el-button>
-        </el-empty>
-        <div v-else class="exam-timeline">
-          <article v-for="(exam, index) in upcomingExams" :key="exam.id">
-            <div class="timeline-marker">
-              <span>{{ index + 1 }}</span>
-            </div>
-            <div class="timeline-date">
-              <strong>{{ displayDate(exam.examDate) }}</strong>
-              <span>{{ displayTime(exam.startTime) }}—{{ displayTime(exam.endTime) }}</span>
-            </div>
-            <div class="timeline-subject">
-              <h3>{{ exam.subject }}</h3>
-              <p>{{ exam.location }}</p>
-            </div>
-            <div class="timeline-actions">
-              <button type="button" @click="openEdit(exam)">编辑</button>
-              <button type="button" class="danger" @click="remove(exam)">删除</button>
-            </div>
-          </article>
+        <el-empty v-if="!upcomingExams.length && !loading" description="管理员尚未发布待考安排" />
+        <div v-else class="exam-timeline exam-grouped-timeline">
+          <section v-for="group in examGroups" :key="group.key" class="exam-time-group">
+            <header>
+              <strong>{{ group.label }}</strong>
+              <span>{{ group.note }}</span>
+            </header>
+            <article v-for="(exam, index) in group.exams" :key="exam.id">
+              <div class="timeline-marker">
+                <span>{{ index + 1 }}</span>
+              </div>
+              <div class="timeline-date">
+                <strong>{{ displayDate(exam.examDate) }}</strong>
+                <span>{{ displayTime(exam.startTime) }}—{{ displayTime(exam.endTime) }}</span>
+              </div>
+              <div class="timeline-subject">
+                <h3>{{ exam.subject }} <em v-if="wasUpdated(exam)">已更新</em></h3>
+                <p>{{ exam.location }}</p>
+              </div>
+            </article>
+          </section>
         </div>
       </section>
 
@@ -261,48 +204,51 @@ onMounted(async () => {
             <span>{{ exam.examDate }}</span
             ><strong>{{ exam.subject }}</strong
             ><small>{{ exam.location }}</small>
-            <button type="button" @click="remove(exam)">删除</button>
           </article>
         </div>
       </details>
     </template>
 
-    <ExamLearningWorkspace v-else :exams="upcomingExams" :me="me" />
-
-    <el-dialog
-      v-model="dialogOpen"
-      :title="editingId ? '编辑考试' : '添加考试'"
-      width="min(520px, 92vw)"
-      @closed="resetForm"
-    >
-      <el-form label-position="top" class="exam-form">
-        <el-form-item label="考试科目" required>
-          <el-input v-model="form.subject" maxlength="120" placeholder="例如：数据结构" />
-        </el-form-item>
-        <el-form-item label="考试日期" required>
-          <el-date-picker
-            v-model="form.examDate"
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="选择日期"
-          />
-        </el-form-item>
-        <div class="exam-time-fields">
-          <el-form-item label="开始时间" required
-            ><el-time-picker v-model="form.startTime" value-format="HH:mm:ss" format="HH:mm"
-          /></el-form-item>
-          <el-form-item label="结束时间" required
-            ><el-time-picker v-model="form.endTime" value-format="HH:mm:ss" format="HH:mm"
-          /></el-form-item>
-        </div>
-        <el-form-item label="考试地点" required>
-          <el-input v-model="form.location" maxlength="200" placeholder="例如：教学楼 A201" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="save">保存安排</el-button>
-      </template>
-    </el-dialog>
+    <ExamLearningWorkspace v-else :me="me" :exams="exams" />
   </section>
 </template>
+
+<style scoped>
+.exam-timeline-panel > header > span small {
+  color: #849198;
+  font-weight: 400;
+}
+.exam-grouped-timeline {
+  display: grid;
+  gap: 25px;
+}
+.exam-time-group > header {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e3ded2;
+}
+.exam-time-group > header strong {
+  color: #2f454e;
+  font:
+    600 19px Georgia,
+    'Microsoft YaHei',
+    serif;
+}
+.exam-time-group > header span {
+  color: #8a7750;
+  font-size: 12px;
+}
+.timeline-subject em {
+  margin-left: 7px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  color: #fff;
+  background: #0d756d;
+  font-size: 10px;
+  font-style: normal;
+  vertical-align: middle;
+}
+</style>

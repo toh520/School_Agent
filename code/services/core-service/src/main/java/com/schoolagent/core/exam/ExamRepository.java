@@ -20,6 +20,15 @@ class ExamRepository {
     this.jdbc = jdbc;
   }
 
+  boolean isStudent(UUID userId) {
+    Integer count =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM app_user WHERE id = ? AND role = 'STUDENT'",
+            Integer.class,
+            userId);
+    return count != null && count > 0;
+  }
+
   List<ExamResponse> list(UUID userId) {
     return jdbc.query(
         """

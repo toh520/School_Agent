@@ -29,6 +29,15 @@ foreach ($artifact in @($coreJar, $agentPython, $viteEntry)) {
     }
 }
 
+# Java runs from a packaged JAR, unlike Vite and Python which read current sources.
+# Refuse a mixed-version startup so newly added controllers cannot appear in the UI
+# while remaining absent from the running backend.
+$latestCoreSource = Get-ChildItem (Join-Path $repositoryRoot 'code\services\core-service\src') `
+    -Recurse -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+if ($latestCoreSource -and $latestCoreSource.LastWriteTimeUtc -gt (Get-Item $coreJar).LastWriteTimeUtc) {
+    throw 'Core service sources are newer than the packaged JAR. Run code/tools/test-all.ps1 before start-dev.ps1.'
+}
+
 # Some Windows Conda installations can leave the venv launcher unable to
 # resolve its base interpreter even though the installed packages are intact.
 # Fall back to the activated Conda interpreter and reuse those site-packages.

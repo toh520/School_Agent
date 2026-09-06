@@ -5,7 +5,7 @@
 ## 当前阶段
 
 - 当前状态：M06 考试与学习助手已完成开发者实现与自测，等待非作者验收
-- 已完成：考试记录、课程资料增量索引、证据问答与纠错、步骤题解、错因诊断、个性化练习、学习记录和阶段复习计划
+- 已完成：管理员考试安排、学生只读查看、课程资料增量索引、证据问答与纠错、步骤题解、错因诊断、个性化练习和完整错题本
 - 首批资料课程：数据结构、算法设计与分析、计算机网络；配置可增量扩展
 - 需求基线：V1.0（2026-08-27）
 - 团队仓库：<https://github.com/toh520/School_Agent>
@@ -83,7 +83,7 @@ Copy-Item code/deploy/.env.example code/deploy/.env.local
 - `V5__information_management.sql`：创建八类统一资料、管理操作日志、索引、引用约束及脱敏初始化数据；
 - `V6__simplify_knowledge_documents.sql`：将校园资料收敛为标题、类别、关键词、正文和来源的公告文本结构；
 - `V7__agent_platform.sql`：创建 Agent 会话、消息、任务、工具轨迹、结果版本和反馈表；
-- `V19__exam_learning_assistant.sql`：创建考试、复习计划、课程资料向量、附件、练习、错题、掌握度和学习活动表；
+- `V19__exam_learning_assistant.sql`：创建考试与学习助手初始数据表；`V20__remove_review_plans_and_mastery.sql` 下线阶段计划和掌握度表，保留完整错题档案；
 - `R__sanitized_foundation_seed.sql`：写入不含账号和个人数据的基础种子标识。
 
 启动成功后访问：
