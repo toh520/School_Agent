@@ -53,6 +53,8 @@ class KnowledgeMatch:
     document_id: UUID
     title: str
     category: str
+    keywords: tuple[str, ...]
+    source: str
     content: str
     similarity: float
 
@@ -91,6 +93,8 @@ class KnowledgeRagService:
                 SELECT document.id AS document_id,
                        document.name AS title,
                        COALESCE(document.payload->>'category', '校园服务') AS category,
+                       COALESCE(document.payload->'keywords', '[]'::jsonb) AS keywords,
+                       COALESCE(document.source, '') AS source,
                        chunk.content,
                        1 - (chunk.embedding <=> %s::vector) AS similarity
                 FROM knowledge_chunk chunk
@@ -107,6 +111,8 @@ class KnowledgeRagService:
                 document_id=row["document_id"],
                 title=str(row["title"]),
                 category=str(row["category"]),
+                keywords=tuple(str(value) for value in row["keywords"]),
+                source=str(row["source"]),
                 content=str(row["content"]),
                 similarity=float(row["similarity"]),
             )
@@ -135,7 +141,8 @@ class KnowledgeRagService:
             cursor.execute(
                 """
                 SELECT id, name, payload->>'category' AS category,
-                       payload->>'body' AS body, updated_at
+                       COALESCE(payload->'keywords', '[]'::jsonb) AS keywords,
+                       payload->>'body' AS body, COALESCE(source, '') AS source, updated_at
                 FROM knowledge_document
                 WHERE status = 'ACTIVE' AND deleted_at IS NULL
                 ORDER BY updated_at, id
@@ -150,8 +157,10 @@ class KnowledgeRagService:
     def _sync_document(self, connection: psycopg.Connection, document: dict) -> None:
         title = str(document["name"])
         category = str(document.get("category") or "校园服务")
+        keywords = tuple(str(value) for value in (document.get("keywords") or []))
+        source = str(document.get("source") or "")
         body = str(document.get("body") or "").strip()
-        chunks = split_knowledge_text(title, category, body)
+        chunks = split_knowledge_text(title, category, body, keywords=keywords, source=source)
         hashes = [_digest(chunk) for chunk in chunks]
         with connection.cursor() as cursor:
             cursor.execute(
@@ -195,13 +204,24 @@ class KnowledgeRagService:
 
 
 def split_knowledge_text(
-    title: str, category: str, body: str, max_chars: int = 700, overlap: int = 100
+    title: str,
+    category: str,
+    body: str,
+    max_chars: int = 700,
+    overlap: int = 100,
+    keywords: Sequence[str] | None = None,
+    source: str = "",
 ) -> list[str]:
     """Split Chinese prose on semantic boundaries while retaining small overlaps."""
 
     cleaned = re.sub(r"[ \t]+", " ", body).strip()
+    metadata = [f"标题：{title}", f"分类：{category}"]
+    if keywords:
+        metadata.append(f"关键词：{'、'.join(str(value) for value in keywords)}")
+    if source:
+        metadata.append(f"来源：{source}")
     if not cleaned:
-        return [f"标题：{title}\n分类：{category}"]
+        return ["\n".join(metadata)]
     sentences = [
         value.strip() for value in re.split(r"(?<=[。！？；!?;])\s*|\n+", cleaned) if value.strip()
     ]
@@ -228,7 +248,7 @@ def split_knowledge_text(
             current = candidate
     if current:
         blocks.append(current)
-    prefix = f"标题：{title}\n分类：{category}\n正文："
+    prefix = "\n".join(metadata) + "\n正文："
     return [prefix + block for block in blocks]
 
 
@@ -236,7 +256,13 @@ def grounded_prompt(matches: list[KnowledgeMatch]) -> str:
     """Build a prompt that treats retrieved text as evidence, never as instructions."""
 
     evidence = [
-        {"title": item.title, "category": item.category, "content": item.content}
+        {
+            "title": item.title,
+            "category": item.category,
+            "keywords": list(item.keywords),
+            "source": item.source,
+            "content": item.content,
+        }
         for item in matches
     ]
     return (
@@ -245,6 +271,17 @@ def grounded_prompt(matches: list[KnowledgeMatch]) -> str:
         "如果资料只能回答部分问题，要明确指出其余部分资料不足；不得补写资料中没有的时间、地点、条件、材料或流程。"
         "直接回答用户问题，不要展示内部相似度、文档编号或检索过程。\n"
         f"校内知识库片段：{json.dumps(evidence, ensure_ascii=False)}"
+    )
+
+
+def knowledge_basis(matches: Sequence[KnowledgeMatch]) -> list[str]:
+    """Return stable, deduplicated citations suitable for the answer card."""
+
+    return list(
+        dict.fromkeys(
+            " · ".join(part for part in (item.title, item.category, item.source) if part)
+            for item in matches
+        )
     )
 
 

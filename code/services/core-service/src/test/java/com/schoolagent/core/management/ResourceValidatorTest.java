@@ -72,7 +72,7 @@ class ResourceValidatorTest {
   }
 
   @Test
-  void validatesSimpleKnowledgeTextForRetrieval() {
+  void validatesKnowledgeTextAndNormalizesSearchKeywords() {
     ValidationResult result =
         validator.validate(
             ResourceType.KNOWLEDGE,
@@ -80,13 +80,14 @@ class ResourceValidatorTest {
                 "code", "NOTICE-01",
                 "name", "图书馆开放通知",
                 "category", "校园服务",
+                "keywords", "图书馆|开放时间|图书馆",
                 "body", "图书馆开放时间以学校最新公告为准。",
                 "source", "校园知识库管理"),
             null,
             4);
 
     assertThat(result.errors()).isEmpty();
-    assertThat(result.values()).doesNotContainKey("keywords");
+    assertThat(result.values().get("keywords")).isEqualTo(List.of("图书馆", "开放时间"));
     assertThat(result.completeness()).isEqualTo(100);
   }
 

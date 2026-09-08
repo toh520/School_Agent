@@ -45,11 +45,17 @@ class CanteenRepository {
   Optional<FoodResponse> food(UUID id) {
     return jdbc
         .query(
-            "SELECT id, code, name, payload FROM dish WHERE id = ? AND deleted_at IS NULL",
+            "SELECT id, code, name, payload FROM dish WHERE id = ? AND deleted_at IS NULL "
+                + "AND payload->>'availabilityStatus' = 'AVAILABLE'",
             this::mapFood,
             id)
         .stream()
         .findFirst();
+  }
+
+  /** Lock the authenticated owner row for the duration of checkout. */
+  void lockUserForOrder(UUID userId) {
+    jdbc.queryForObject("SELECT id FROM app_user WHERE id = ? FOR UPDATE", UUID.class, userId);
   }
 
   List<String> allergens(UUID userId) {

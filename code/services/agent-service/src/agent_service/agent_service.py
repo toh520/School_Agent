@@ -20,6 +20,7 @@ from agent_service.knowledge_rag import (
     KnowledgeRagService,
     general_reference_prompt,
     grounded_prompt,
+    knowledge_basis,
 )
 from agent_service.llm import ModelUnavailable, OpenAICompatibleModel
 from agent_service.workflow import WorkflowEngine, follow_up_message, system_prompt
@@ -256,7 +257,7 @@ class AgentOrchestrator:
                         dict.fromkeys(str(item.document_id) for item in matches)
                     ),
                 },
-                basis=[],
+                basis=knowledge_basis(matches),
                 limitations=["回答仅依据当前有效的校内知识库"]
                 if not fallback
                 else ["回答模型暂时不可用"],

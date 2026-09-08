@@ -136,6 +136,7 @@ public final class ResourceSchema {
             required("code", "知识编码", FieldKind.TEXT, "由系统自动生成"),
             required("name", "标题", FieldKind.TEXT, "用一句话概括这块知识"),
             required("category", "分类", FieldKind.TEXT, "例如办事指南、规章制度或校园服务"),
+            recommended("keywords", "检索关键词", FieldKind.LIST, "多项使用竖线分隔，用于关键词检索"),
             required("body", "正文", FieldKind.LONG_TEXT, "用于校园问答的完整文字内容"),
             required("source", "信息来源", FieldKind.TEXT, "由系统自动维护")));
     schemas.put(

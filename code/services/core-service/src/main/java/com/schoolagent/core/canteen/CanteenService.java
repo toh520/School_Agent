@@ -64,10 +64,15 @@ class CanteenService {
 
   @Transactional
   OrderResponse placeOrder(UUID userId) {
+    // Serialize checkout per user so rapid duplicate submissions cannot both snapshot the cart.
+    repository.lockUserForOrder(userId);
     if (repository.cart(userId).items().isEmpty())
       throw new BusinessException(ErrorCode.CONFLICT, HttpStatus.CONFLICT);
     String number =
-        "DEMO" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        "DEMO"
+            + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+            + "-"
+            + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     return repository.placeOrder(userId, number);
   }
 }

@@ -162,6 +162,8 @@ async function submitOrder(): Promise<void> {
     lastOrder.value = await placeDemoOrder()
     cart.value = { items: [], totalQuantity: 0, totalAmount: 0 }
     ElMessage.success('下单成功')
+  } catch {
+    ElMessage.error('下单失败：购物车可能已经结算或清空，请刷新后重试')
   } finally {
     ordering.value = false
   }
