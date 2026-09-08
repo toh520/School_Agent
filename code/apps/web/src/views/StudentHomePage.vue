@@ -23,7 +23,7 @@ const services = computed(() => [
     title: '智能食堂',
     description: '查看今日餐品，或让 AI 按本次需求组合一餐。',
     path: '/canteen',
-    status: '下一阶段开发',
+    status: null,
   },
   {
     key: 'campus',
@@ -31,7 +31,7 @@ const services = computed(() => [
     title: '校园助手',
     description: '围绕校园办事与公告，发起一场有依据的问答。',
     path: '/campus',
-    status: '对话底座可用',
+    status: null,
   },
   {
     key: 'exam',
@@ -49,7 +49,7 @@ const services = computed(() => [
     title: '智能图书馆',
     description: '查询真实馆藏，也可以按当次目标请 AI 选书。',
     path: '/library',
-    status: '界面已规划',
+    status: null,
   },
 ])
 
@@ -94,7 +94,7 @@ onMounted(async () => {
       >
         <span class="destination-mark">{{ service.mark }}</span>
         <span class="destination-copy">
-          <small>{{ service.status }}</small>
+          <small v-if="service.status">{{ service.status }}</small>
           <strong>{{ service.title }}</strong>
           <span>{{ service.description }}</span>
         </span>
